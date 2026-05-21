@@ -1,0 +1,8 @@
+{
+  "name": "Nexus Arena League",
+  "description": "La plataforma definitiva de torneos eSports para la comunidad gamer de Venezuela. Chat en tiempo real, tablas de clasificación y premios en moneda local.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

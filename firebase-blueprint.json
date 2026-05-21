@@ -1,0 +1,208 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "gameId": { "type": "string", "description": "Global ID in the main game" },
+        "gameNick": { "type": "string", "description": "In-game nickname" },
+        "bio": { "type": "string" },
+        "platform": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "wins": { "type": "integer" },
+            "losses": { "type": "integer" },
+            "tournaments": { "type": "integer" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Tournament": {
+      "title": "Tournament",
+      "description": "Tournament details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "game": { "type": "string" },
+        "gameMode": { "type": "string", "enum": ["Battle Royale", "Batalla de Escuadrones", "Buscar y Destruir"] },
+        "status": { "type": "string", "enum": ["upcoming", "ongoing", "completed"] },
+        "startDate": { "type": "string", "format": "date-time" },
+        "maxParticipants": { "type": "integer" },
+        "registeredParticipants": { "type": "integer" },
+        "prizePool": { "type": "string" },
+        "rules": { "type": "string" },
+        "bannerImage": { "type": "string" },
+        "roomNumber": { "type": "string" },
+        "roomPassword": { "type": "string" },
+        "roomCreationTime": { "type": "string", "format": "date-time" },
+        "entryFee": { "type": "string" },
+        "startReminderSent": { "type": "boolean" },
+        "remind24hSent": { "type": "boolean" },
+        "remind30mSent": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "game", "status", "startDate"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "A match within a tournament bracket",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tournamentId": { "type": "string" },
+        "player1Id": { "type": "string" },
+        "player1Name": { "type": "string" },
+        "player2Id": { "type": "string" },
+        "player2Name": { "type": "string" },
+        "score1": { "type": "integer" },
+        "score2": { "type": "integer" },
+        "winnerId": { "type": "string" },
+        "round": { "type": "integer" },
+        "matchIndex": { "type": "integer", "description": "Position in the round" },
+        "status": { "type": "string", "enum": ["pending", "ongoing", "completed", "bye"] },
+        "nextMatchId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tournamentId", "round", "matchIndex", "status"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Message in tournament chat",
+      "type": "object",
+      "properties": {
+        "tournamentId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhotoURL": { "type": "string" },
+        "message": { "type": "string" },
+        "isSystem": { "type": "boolean" },
+        "replyTo": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "message": { "type": "string" },
+            "senderName": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tournamentId", "senderId", "message"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "link": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "content", "read"]
+    },
+    "Friend": {
+      "title": "Friend",
+      "description": "Friend relationship",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "FriendRequest": {
+      "title": "FriendRequest",
+      "description": "Friend request between users",
+      "type": "object",
+      "properties": {
+        "fromId": { "type": "string" },
+        "fromName": { "type": "string" },
+        "fromPhotoURL": { "type": "string" },
+        "toId": { "type": "string" },
+        "toName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fromId", "toId", "status"]
+    },
+    "Game": {
+      "title": "Game",
+      "description": "A popular game banner customized by administrators",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "genre": { "type": "string" },
+        "image": { "type": "string" },
+        "isComingSoon": { "type": "boolean" },
+        "iconName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "genre", "image"]
+    }
+  },
+  "firestore": {
+    "games": {
+      "schema": "Game",
+      "description": "Customized popular games list"
+    },
+    "users": {
+      "schema": "User",
+      "description": "Collection of user profiles"
+    },
+    "tournaments": {
+      "schema": "Tournament",
+      "description": "Collection of tournaments"
+    },
+    "tournaments/{tournamentId}/matches": {
+      "schema": "Match",
+      "description": "Matches for a specific tournament"
+    },
+    "tournaments/{tournamentId}/chat": {
+      "schema": "ChatMessage",
+      "description": "Chat messages for a tournament"
+    },
+    "tournaments/{tournamentId}/participants": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "userName": { "type": "string" },
+          "registeredAt": { "type": "string", "format": "date-time" },
+          "paymentStatus": { "type": "string", "enum": ["none", "pending", "approved"] },
+          "paymentReference": { "type": "string" },
+          "paymentCode": { "type": "string" }
+        }
+      },
+      "description": "Participants list for a tournament"
+    },
+    "users/{userId}/notifications": {
+      "schema": "Notification",
+      "description": "Notifications for a user"
+    },
+    "users/{userId}/friends": {
+      "schema": "Friend",
+      "description": "Friends of a user"
+    },
+    "friendRequests": {
+      "schema": "FriendRequest",
+      "description": "Pending and past friend requests"
+    }
+  }
+}

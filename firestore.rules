@@ -1,0 +1,220 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      // In this app, admins are hardcoded by email for simplicity in the rules,
+      // but in production, we should ideally use a document lookup or custom claims.
+      return isSignedIn() && (
+        request.auth.token.email == 'lila23maria07@gmail.com' || 
+        request.auth.token.email == 'alexparababi23@gmail.com'
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isServer() {
+      return incoming().get('serverSecret', '') == 'f2036db1-8325-4f24-a75b-792ce7522f24';
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Entity Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && data.email == request.auth.token.email &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.keys().hasAll(['uid', 'email', 'displayName', 'photoURL', 'stats', 'createdAt']);
+    }
+
+    function isValidTournament(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.game is string && data.game.size() > 0 &&
+             data.status in ['upcoming', 'ongoing', 'completed'] &&
+             data.maxParticipants is int && data.maxParticipants >= 2 &&
+             data.keys().hasAll(['name', 'game', 'status', 'startDate', 'maxParticipants', 'registeredParticipants']);
+    }
+
+    function isValidParticipant(data) {
+      return data.userId is string && 
+             data.userName is string &&
+             (data.photoURL is string || data.photoURL == null) &&
+             data.paymentStatus in ['none', 'pending', 'approved', 'rejected'] &&
+             data.keys().hasAll(['userId', 'userName', 'registeredAt', 'paymentStatus']);
+    }
+
+    function isValidMatch(data) {
+      return data.player1Id is string && data.player2Id is string &&
+             data.status in ['pending', 'completed'] &&
+             data.round is int &&
+             data.keys().hasAll(['player1Id', 'player2Id', 'status', 'round']);
+    }
+
+    function isValidChatMessage(data) {
+      return data.message is string && data.message.size() > 0 && data.message.size() <= 1000 &&
+             data.senderId is string &&
+             data.senderName is string &&
+             (data.senderPhotoURL is string || data.senderPhotoURL == null) &&
+             data.keys().hasAll(['senderId', 'senderName', 'message', 'createdAt']);
+    }
+
+    function isValidFriend(data) {
+      return data.uid is string && data.displayName is string &&
+             data.keys().hasAll(['uid', 'displayName', 'addedAt']);
+    }
+
+    function isValidFriendRequest(data) {
+      return data.fromId is string && data.toId is string &&
+             data.fromName is string && data.toName is string &&
+             data.status in ['pending', 'accepted', 'declined'] &&
+             data.keys().hasAll(['fromId', 'toId', 'fromName', 'toName', 'status', 'createdAt']);
+    }
+
+    function isValidGame(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+             data.genre is string && data.genre.size() > 0 && data.genre.size() <= 60 &&
+             data.image is string &&
+             data.keys().hasAll(['name', 'genre', 'image']);
+    }
+
+    // --- Collection Routes ---
+
+    // Friend Requests
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn() && (isOwner(resource.data.fromId) || isOwner(resource.data.toId));
+      allow create: if isVerified() && 
+                    incoming().fromId == request.auth.uid && 
+                    incoming().status == 'pending' &&
+                    isValidFriendRequest(incoming()) &&
+                    incoming().createdAt == request.time &&
+                    isValidId(requestId);
+      allow update: if isVerified() && (
+        (isOwner(existing().toId) && incoming().status in ['accepted', 'declined']) ||
+        isAdmin()
+      ) && incoming().fromId == existing().fromId && incoming().toId == existing().toId &&
+      incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() || isOwner(existing().fromId) || isOwner(existing().toId);
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    !incoming().diff(existing()).affectedKeys().hasAny(['uid', 'email', 'createdAt']) &&
+                    (isOwner(userId) ? !incoming().diff(existing()).affectedKeys().hasAny(['isAdmin']) : true);
+      allow delete: if isAdmin();
+
+      // Friends
+      match /friends/{friendId} {
+        allow read: if isSignedIn();
+        // Allow user to manage their friends, or allow a friend to add themselves if accepted
+        allow write: if isOwner(userId) || (isOwner(friendId) && (
+          exists(/databases/$(database)/documents/friendRequests/$(userId + "_" + friendId)) && 
+          get(/databases/$(database)/documents/friendRequests/$(userId + "_" + friendId)).data.status == "accepted"
+        ) || (
+          exists(/databases/$(database)/documents/friendRequests/$(friendId + "_" + userId)) && 
+          get(/databases/$(database)/documents/friendRequests/$(friendId + "_" + userId)).data.status == "accepted"
+        ));
+      }
+
+      // Notifications
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create: if isSignedIn() || isServer(); // Allow anyone to send notifications or server
+        allow update: if isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // Tournaments
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidTournament(incoming()) && incoming().createdAt == request.time;
+      allow update: if (
+        (isAdmin() || isServer()) && 
+        incoming().createdAt == existing().createdAt &&
+        (incoming().status != 'completed' || existing().status != 'completed' || isAdmin() || isServer())
+      ) || (
+        isSignedIn() && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['registeredParticipants']) &&
+        incoming().registeredParticipants == existing().registeredParticipants + 1
+      );
+      allow delete: if isAdmin();
+
+      // Participants
+      match /participants/{participantId} {
+        allow read: if true;
+        // User can register themselves or initialize typing status
+        allow create: if isOwner(participantId) && (
+          (isValidParticipant(incoming()) && incoming().registeredAt == request.time && incoming().userId == request.auth.uid) ||
+          (incoming().keys().hasAll(['isTyping', 'lastTypingAt', 'userName']) && incoming().keys().size() <= 6)
+        );
+        // Admin can update everything, or Owner can update their typing status or registration info (if pending)
+        allow update: if isAdmin() || (isOwner(participantId) && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['isTyping', 'lastTypingAt', 'userName']) ||
+          (existing().paymentStatus == 'pending' && !incoming().diff(existing()).affectedKeys().hasAny(['userId', 'registeredAt']))
+        ));
+        allow delete: if isOwner(participantId) || isAdmin();
+      }
+
+      // Matches
+      match /matches/{matchId} {
+        allow read: if true;
+        allow create: if isAdmin() && isValidMatch(incoming()) && (incoming().updatedAt == request.time || incoming().createdAt == request.time);
+        allow update: if isAdmin() && incoming().updatedAt == request.time;
+        allow delete: if isAdmin();
+      }
+
+      // Chat
+      match /chat/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isVerified() && (
+          (incoming().senderId == request.auth.uid && incoming().senderName != 'Sistema') || 
+          (isAdmin() && (incoming().senderId == 'system' || incoming().senderId == request.auth.uid))
+        ) && isValidChatMessage(incoming()) && (incoming().createdAt == request.time || isAdmin());
+        allow update: if isAdmin() || (isOwner(existing().senderId) && incoming().message is string && incoming().diff(existing()).affectedKeys().hasOnly(['message', 'updatedAt', 'isEdited']));
+        allow delete: if isAdmin() || isOwner(existing().senderId);
+      }
+    }
+
+    // Games
+    match /games/{gameId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidGame(incoming()) && isValidId(gameId);
+      allow update: if isAdmin() && isValidGame(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Global lock for unspecified paths
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+    }
+  }
+}
