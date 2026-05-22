@@ -621,8 +621,8 @@ const AdminPage: React.FC = () => {
                 type="number" 
                 required
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-3 outline-none focus:border-primary transition-colors"
-                value={formData.maxParticipants}
-                onChange={e => setFormData({...formData, maxParticipants: parseInt(e.target.value)})}
+                value={Number.isNaN(formData.maxParticipants) ? '' : formData.maxParticipants}
+                onChange={e => setFormData({...formData, maxParticipants: parseInt(e.target.value) || 0})}
               />
             </div>
             <div className="space-y-2">
@@ -1634,7 +1634,7 @@ const AdminPage: React.FC = () => {
                                       type="number"
                                       placeholder="Ex: 4"
                                       className="w-10 bg-transparent text-white text-xs font-bold outline-none border-none p-1 text-center"
-                                      value={placementPosition[p.userId] || (p.placement > 3 ? p.placement : '')}
+                                      value={placementPosition[p.userId] ?? (Number.isNaN(p.placement) || !p.placement || p.placement <= 3 ? '' : p.placement)}
                                       onChange={(e) => setPlacementPosition({...placementPosition, [p.userId]: parseInt(e.target.value) || 0})}
                                     />
                                   </div>
@@ -1644,7 +1644,7 @@ const AdminPage: React.FC = () => {
                                       type="number"
                                       placeholder="Ex: 10"
                                       className="w-12 bg-transparent text-primary text-xs font-bold outline-none border-none p-1 text-center"
-                                      value={placementPoints[p.userId] || (p.pointsAwarded || '')}
+                                      value={placementPoints[p.userId] ?? (Number.isNaN(p.pointsAwarded) || !p.pointsAwarded ? '' : p.pointsAwarded)}
                                       onChange={(e) => setPlacementPoints({...placementPoints, [p.userId]: parseInt(e.target.value) || 0})}
                                     />
                                   </div>
