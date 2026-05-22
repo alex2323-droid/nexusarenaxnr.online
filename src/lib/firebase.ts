@@ -39,4 +39,17 @@ async function testConnection() {
 }
 testConnection();
 
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const signInWithGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result;
+  } catch (error: any) {
+    console.error("Login try error:", error);
+    if (error.code === 'auth/unauthorized-domain') {
+      alert("Error: Este dominio no está autorizado para iniciar sesión. Por favor autoriza este dominio en tu consola de Firebase (Authentication > Configuración > Dominios autorizados).");
+    } else {
+      alert(`Error al iniciar sesión: ${error.message}`);
+    }
+    throw error;
+  }
+};
