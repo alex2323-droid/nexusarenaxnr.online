@@ -4,9 +4,10 @@ import { tournamentService, userService, bracketService } from '../services/db';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore';
 import axios from 'axios';
-import { Trophy, Plus, Minus, Settings, Trash2, Check, Users, Clock, CreditCard, Eye, History, X, AlertTriangle, Workflow } from 'lucide-react';
+import { Trophy, Plus, Minus, Settings, Trash2, Check, Users, Clock, CreditCard, Eye, History, X, AlertTriangle, Workflow, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import EmailAdmin from '../components/EmailAdmin';
 
 const AdminPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -14,7 +15,7 @@ const AdminPage: React.FC = () => {
   const [pendingParticipants, setPendingParticipants] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'tournaments' | 'payments' | 'ranking'>('tournaments');
+  const [activeTab, setActiveTab] = useState<'tournaments' | 'payments' | 'ranking' | 'emails'>('tournaments');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -533,6 +534,17 @@ const AdminPage: React.FC = () => {
         >
           Ranking
           {activeTab === 'ranking' && <motion.div layoutId="underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+        </button>
+        <button 
+          onClick={() => setActiveTab('emails')}
+          className={cn(
+            "pb-4 px-2 font-display uppercase italic text-lg transition-all relative flex items-center gap-2",
+            activeTab === 'emails' ? "text-primary" : "text-gray-500 hover:text-white"
+          )}
+        >
+          <Mail size={20} />
+          Correos
+          {activeTab === 'emails' && <motion.div layoutId="underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
         </button>
       </div>
 
@@ -1768,6 +1780,12 @@ const AdminPage: React.FC = () => {
             </div>
 
             {/* Quick Summary of Stats (optional) */}
+          </div>
+        )}
+
+        {activeTab === 'emails' && (
+          <div className="space-y-8">
+            <EmailAdmin />
           </div>
         )}
 

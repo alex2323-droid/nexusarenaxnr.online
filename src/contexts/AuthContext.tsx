@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Initial setup if doesn't exist
         const userDoc = await getDoc(userRef);
-        const adminEmails = ['lila23maria07@gmail.com', 'alexparababi23@gmail.com'];
+        const adminEmails = ['lila23maria07@gmail.com', 'alexparababi23@gmail.com', 'm04683275@gmail.com'];
         const isUserAdmin = adminEmails.includes(user.email || '');
         setIsAdmin(isUserAdmin);
 

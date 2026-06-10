@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, User } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -17,31 +17,28 @@ console.error = (...args: any[]) => {
 
 const app = initializeApp(firebaseConfig);
 
-// Use initializeFirestore instead of getFirestore to enable experimentalForceLongPolling
-// This is a known workaround for "BloomFilterError: Invalid hash count: 0"
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
+export const db = (firebaseConfig as any).firestoreDatabaseId 
+  ? initializeFirestore(app, { experimentalForceLongPolling: true }, (firebaseConfig as any).firestoreDatabaseId)
+  : initializeFirestore(app, { experimentalForceLongPolling: true });
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/gmail.send');
 
-// Test connection as per guidelines
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, '_connection_test_', 'ping'));
-    console.log('Firebase connection successful');
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-}
-testConnection();
+// Cache the access token in memory.
+let cachedAccessToken: string | null = null;
+export const getAccessToken = async (): Promise<string | null> => {
+  return cachedAccessToken;
+};
 
 export const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      cachedAccessToken = credential.accessToken;
+    }
     return result;
   } catch (error: any) {
     console.error("Login try error:", error);
