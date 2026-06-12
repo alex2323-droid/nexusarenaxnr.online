@@ -755,7 +755,7 @@ const TournamentPage: React.FC = () => {
               transition={{ delay: 0.5 }}
               className="flex flex-wrap gap-4 pt-4"
             >
-              {!isRegistered && tournament.status === 'upcoming' && (
+              {!isRegistered && participant?.paymentStatus !== 'pending' && tournament.status === 'upcoming' && (
                 <button 
                   onClick={handleRegister}
                   disabled={isSubmitting}
@@ -770,9 +770,15 @@ const TournamentPage: React.FC = () => {
                 </button>
               )}
 
-              {!isFree && (
+              {participant?.paymentStatus === 'pending' && (
+                <div className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 px-8 py-3 rounded-xl font-display uppercase italic text-lg skew-x-[-15deg] flex items-center gap-2 shadow-xl shadow-yellow-500/10">
+                  <Clock size={20} /> EN REVISIÓN
+                </div>
+              )}
+
+              {!isFree && participant?.paymentStatus !== 'pending' && (
                 <a 
-                  href={`https://wa.me/584142943532?text=Hola,%20quisiera%20validar%20mi%20inscripción%20en%20el%20torneo%20"${tournament.name}".%20Mi%20código%20de%20verificación%20es:%20${verificationCode}`}
+                  href={`https://wa.me/584124780457?text=Hola,%20quisiera%20validar%20mi%20inscripción%20en%20el%20torneo%20"${tournament.name}".%20Mi%20código%20de%20verificación%20es:%20${verificationCode}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-[#25D366] text-white px-8 py-3 rounded-xl font-display uppercase italic text-lg skew-x-[-15deg] transition-all flex items-center gap-2 hover:bg-white hover:text-[#25D366] shadow-xl shadow-green-500/20 active:scale-95"
@@ -789,7 +795,7 @@ const TournamentPage: React.FC = () => {
       </section>
 
       {/* Payment Instructions if Fee Exists and is not Free */}
-      {tournament.entryFee && !isFree && !isRegistered && (
+      {tournament.entryFee && !isFree && !isRegistered && participant?.paymentStatus !== 'pending' && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -806,39 +812,39 @@ const TournamentPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                <button 
                  onClick={() => {
-                   navigator.clipboard.writeText('31536656');
-                   alert('CI Copiada: 31.536.656');
+                   navigator.clipboard.writeText('32868567');
+                   alert('CI Copiada: 32.868.567');
                  }}
                  className="p-4 bg-black/40 border border-white/5 rounded-2xl hover:border-primary/50 transition-all text-left group"
                >
                  <p className="text-[10px] uppercase font-bold text-gray-500 group-hover:text-primary">Pago Móvil (CI)</p>
-                 <p className="font-mono text-white">31.536.656</p>
+                 <p className="font-mono text-white">32.868.567</p>
                </button>
                <button 
                  onClick={() => {
-                   navigator.clipboard.writeText('0102');
-                   alert('Banco Copiado: 0102-Banco de Venezuela');
+                   navigator.clipboard.writeText('0114');
+                   alert('Banco Copiado: 0114-Bancaribe');
                  }}
                  className="p-4 bg-black/40 border border-white/5 rounded-2xl hover:border-primary/50 transition-all text-left group"
                >
                  <p className="text-[10px] uppercase font-bold text-gray-500 group-hover:text-primary">Banco</p>
-                 <p className="font-mono text-white">0102-Banco de Venezuela</p>
+                 <p className="font-mono text-white">0114-Bancaribe</p>
                </button>
                <button 
                  onClick={() => {
-                   navigator.clipboard.writeText('04142943532');
-                   alert('Teléfono Copiado: 04142943532');
+                   navigator.clipboard.writeText('04124780457');
+                   alert('Teléfono Copiado: 0412-4780457');
                  }}
                  className="p-4 bg-black/40 border border-white/5 rounded-2xl hover:border-primary/50 transition-all text-left group"
                >
                  <p className="text-[10px] uppercase font-bold text-gray-500 group-hover:text-primary">Teléfono</p>
-                 <p className="font-mono text-white">04142943532</p>
+                 <p className="font-mono text-white">0412-4780457</p>
                </button>
             </div>
             <p className="text-xs text-gray-400 italic">* Una vez realizado el pago, presiona el botón de la derecha para enviar el comprobante por WhatsApp. Tu código de verificación es: <span className="text-primary font-mono font-bold">{verificationCode}</span></p>
           </div>
           <a 
-            href={`https://wa.me/584142943532?text=Hola,%20adjunto%20mi%20comprobante%20de%20pago%20para%20el%20torneo%20"${tournament.name}".%20Mi%20código%20de%20verificación%20es:%20${verificationCode}`}
+            href={`https://wa.me/584124780457?text=Hola,%20adjunto%20mi%20comprobante%20de%20pago%20para%20el%20torneo%20"${tournament.name}".%20Mi%20código%20de%20verificación%20es:%20${verificationCode}`}
             target="_blank"
             rel="noopener noreferrer"
             className="whitespace-nowrap bg-[#25D366] text-black px-6 py-3 rounded-xl font-display uppercase skew-x-[-10deg] flex items-center gap-2 hover:bg-white transition-colors"
@@ -1004,7 +1010,7 @@ const TournamentPage: React.FC = () => {
                       </div>
                       
                       <a 
-                        href={`https://wa.me/584142943532?text=Hola,%20quisiera%20validar%20mi%20inscripción%20para%20el%20torneo%20"${tournament.name}".%20Mi%20código%20es%20${verificationCode}%20y%20mi%20referencia%20es%20${regForm.reference || 'PENDIENTE'}`}
+                        href={`https://wa.me/584124780457?text=Hola,%20quisiera%20validar%20mi%20inscripción%20para%20el%20torneo%20"${tournament.name}".%20Mi%20código%20es%20${verificationCode}%20y%20mi%20referencia%20es%20${regForm.reference || 'PENDIENTE'}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] py-2.5 rounded-xl font-display uppercase italic text-[9px] sm:text-[10px] border border-[#25D366]/30 flex items-center justify-center gap-1.5 transition-all active:scale-95"
@@ -1139,18 +1145,10 @@ const TournamentPage: React.FC = () => {
 
                   <div className="space-y-2">
                     <h2 className="text-2xl sm:text-3xl font-display uppercase italic tracking-tighter leading-tight">
-                      {isFree ? (
-                        <>¡Inscripción<br /><span className="text-primary">Completada!</span></>
-                      ) : (
-                        <>¡Solicitud de <br /><span className="text-primary">Inscripción Enviada!</span></>
-                      )}
+                        ¡Solicitud de <br /><span className="text-primary">Inscripción Enviada!</span>
                     </h2>
                     <p className="text-gray-400 text-xs sm:text-sm max-w-xs mx-auto leading-relaxed">
-                      {isFree ? (
-                        "¡Te has inscrito de forma directa y gratuita! Tu cupo está completamente asegurado."
-                      ) : (
-                        "Tu registro está pendiente de validación. Para completar el proceso, por favor envía tu comprobante de pago."
-                      )}
+                        Tu registro está pendiente de validación por un administrador.
                     </p>
                   </div>
 
@@ -1167,7 +1165,7 @@ const TournamentPage: React.FC = () => {
                   <div className="grid grid-cols-1 gap-2.5 sm:gap-3">
                     {!isFree ? (
                       <a 
-                        href={`https://wa.me/584142943532?text=Hola,%20acabo%20de%20inscribirme%20en%20el%20torneo%20"${tournament?.name}".%20Aquí%20adjunto%20mi%20comprobante%20de%20pago.%20Mi%20código%20de%20verificación%20es:%20${verificationCode}`}
+                        href={`https://wa.me/584124780457?text=Hola,%20acabo%20de%20inscribirme%20en%20el%20torneo%20"${tournament?.name}".%20Aquí%20adjunto%20mi%20comprobante%20de%20pago.%20Mi%20código%20de%20verificación%20es:%20${verificationCode}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full bg-[#25D366] hover:bg-white hover:text-[#25D366] text-white py-3.5 sm:py-4 rounded-xl font-display uppercase italic text-sm sm:text-lg transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-green-500/20"
@@ -1592,12 +1590,14 @@ const TournamentPage: React.FC = () => {
                     }}
                     className="grid grid-cols-1 md:grid-cols-2 gap-4"
                   >
-                    {participantsList.length > 0 ? (
-                      participantsList.map((p) => {
-                        const isConfirmed = p.paymentStatus === 'approved' || p.paymentStatus === 'none';
-                        return (
-                          <motion.div 
-                            key={p.id} 
+                    {(() => {
+                      const visibleParticipants = participantsList.filter(p => isAdmin || p.paymentStatus === 'approved' || p.paymentStatus === 'none' || p.userId === user?.uid);
+                      return visibleParticipants.length > 0 ? (
+                        visibleParticipants.map((p) => {
+                          const isConfirmed = p.paymentStatus === 'approved' || p.paymentStatus === 'none';
+                          return (
+                            <motion.div 
+                              key={p.id} 
                             variants={{
                               hidden: { opacity: 0, y: 10 },
                               visible: { opacity: 1, y: 0 }
@@ -1641,13 +1641,14 @@ const TournamentPage: React.FC = () => {
                             </div>
                           </motion.div>
                         );
-                      })
-                    ) : (
-                      <div className="col-span-2 py-20 text-center space-y-4">
-                        <Users size={48} className="mx-auto text-gray-800" />
-                        <p className="text-gray-500 uppercase font-bold text-xs">No hay participantes registrados aún</p>
-                      </div>
-                    )}
+                        })
+                      ) : (
+                        <div className="col-span-2 py-20 text-center space-y-4">
+                          <Users size={48} className="mx-auto text-gray-800" />
+                          <p className="text-gray-500 uppercase font-bold text-xs">No hay participantes registrados aún</p>
+                        </div>
+                      );
+                    })()}
                   </motion.div>
                 </motion.div>
               )}

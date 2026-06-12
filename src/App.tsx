@@ -9,6 +9,7 @@ import TournamentPage from './pages/TournamentPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import ForumPage from './pages/ForumPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './components/LoginPage';
 import { Toaster } from 'react-hot-toast';
@@ -60,6 +61,14 @@ const RootApp = () => {
           element={
             <ProtectedRoute requireAdmin>
               <AdminPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/forum" 
+          element={
+            <ProtectedRoute requireAdmin>
+              <ForumPage />
             </ProtectedRoute>
           } 
         />

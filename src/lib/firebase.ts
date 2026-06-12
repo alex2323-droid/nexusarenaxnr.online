@@ -23,22 +23,10 @@ export const db = (firebaseConfig as any).firestoreDatabaseId
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-googleProvider.addScope('https://www.googleapis.com/auth/gmail.send');
-
-// Cache the access token in memory.
-let cachedAccessToken: string | null = null;
-export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
-};
 
 export const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (credential?.accessToken) {
-      cachedAccessToken = credential.accessToken;
-    }
     return result;
   } catch (error: any) {
     console.error("Login try error:", error);

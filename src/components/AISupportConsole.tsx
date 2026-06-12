@@ -767,7 +767,7 @@ export const AISupportConsole: React.FC = () => {
 
                   {/* Fallback support for WhatsApp inside the suggestions */}
                   <motion.a
-                    href="https://wa.me/584142943532?text=Hola%20Nexus%20Arena%21%20Necesito%20soporte%20o%20ayuda%20para%20asistencia%20en%20la%20plataforma."
+                    href="https://wa.me/584124780457?text=Hola%20Nexus%20Arena%21%20Necesito%20soporte%20o%20ayuda%20para%20asistencia%20en%20la%20plataforma."
                     target="_blank"
                     rel="noreferrer"
                     initial={{ opacity: 0, x: 20 }}

@@ -82,7 +82,7 @@ const HomePage: React.FC = () => {
   const [paymentReference, setPaymentReference] = useState('');
   const [tempVerificationCode, setTempVerificationCode] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [userRegistrations, setUserRegistrations] = useState<Record<string, boolean>>({});
+  const [userRegistrations, setUserRegistrations] = useState<Record<string, string | null>>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState<{ tournament: any, code: string } | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -262,13 +262,13 @@ const HomePage: React.FC = () => {
       
       // Check registrations for the current user
       if (user) {
-        const regs: Record<string, boolean> = { ...userRegistrations };
+        const regs: Record<string, string | null> = { ...userRegistrations };
         const tournamentsToCheck = newTournaments.filter(t => regs[t.id] === undefined);
         
         if (tournamentsToCheck.length > 0) {
           await Promise.all(tournamentsToCheck.map(async (t) => {
-            const isReg = await tournamentService.isRegistered(t.id, user.uid);
-            regs[t.id] = !!isReg;
+            const status = await tournamentService.getRegistrationStatus(t.id, user.uid);
+            regs[t.id] = status;
           }));
           setUserRegistrations(regs);
         }
@@ -318,10 +318,10 @@ const HomePage: React.FC = () => {
       setHasMore(result.hasMore);
 
       if (user) {
-        const regs: Record<string, boolean> = { ...userRegistrations };
+        const regs: Record<string, string | null> = { ...userRegistrations };
         await Promise.all(result.tournaments.map(async (t) => {
-          const isReg = await tournamentService.isRegistered(t.id, user.uid);
-          regs[t.id] = !!isReg;
+          const status = await tournamentService.getRegistrationStatus(t.id, user.uid);
+          regs[t.id] = status;
         }));
         setUserRegistrations(regs);
       }
@@ -380,12 +380,7 @@ const HomePage: React.FC = () => {
           profile?.gameId,
           profile?.gameNick
         );
-        setUserRegistrations(prev => ({ ...prev, [tournament.id]: true }));
-        setTournaments(prev => prev.map(t => 
-          t.id === tournament.id 
-            ? { ...t, registeredParticipants: (t.registeredParticipants || 0) + 1 }
-            : t
-        ));
+        setUserRegistrations(prev => ({ ...prev, [tournament.id]: 'pending' }));
         setSuccessData({ tournament, code: verificationCode });
         setShowSuccessModal(true);
         setConfirmingTournament(null);
@@ -401,6 +396,7 @@ const HomePage: React.FC = () => {
           profile?.gameId,
           profile?.gameNick
         );
+        setUserRegistrations(prev => ({ ...prev, [tournament.id]: 'pending' }));
         setSuccessData({ tournament, code: verificationCode });
         setShowSuccessModal(true);
         setConfirmingTournament(null);
@@ -523,15 +519,15 @@ const HomePage: React.FC = () => {
                         <div className="grid grid-cols-1 gap-1.5 text-[10px]">
                           <div className="flex justify-between items-center py-1 border-b border-white/5">
                             <span className="text-gray-500 font-bold uppercase">Banco</span>
-                            <span className="text-white font-mono z-10 select-all">0102 - Venezuela</span>
+                            <span className="text-white font-mono z-10 select-all">0114 - Bancaribe</span>
                           </div>
                           <div className="flex justify-between items-center py-1 border-b border-white/5">
                             <span className="text-gray-500 font-bold uppercase">Teléfono</span>
-                            <span className="text-white font-mono text-primary font-bold z-10 select-all">0414-2943532</span>
+                            <span className="text-white font-mono text-primary font-bold z-10 select-all">0412-4780457</span>
                           </div>
                           <div className="flex justify-between items-center py-1">
                             <span className="text-gray-500 font-bold uppercase">Cédula</span>
-                            <span className="text-white font-mono z-10 select-all">31.536.656</span>
+                            <span className="text-white font-mono z-10 select-all">32.868.567</span>
                           </div>
                         </div>
                       </div>
@@ -559,7 +555,7 @@ const HomePage: React.FC = () => {
                       </div>
 
                       <a 
-                        href={`https://wa.me/584142943532?text=Hola,%20quisiera%20validar%20mi%20inscripción%20para%20el%20torneo%20"${confirmingTournament.name}".%20Mi%20código%20es%20${tempVerificationCode}%20y%20mi%20referencia%20es%20${paymentReference || 'PENDIENTE'}`}
+                        href={`https://wa.me/584124780457?text=Hola,%20quisiera%20validar%20mi%20inscripción%20para%20el%20torneo%20"${confirmingTournament.name}".%20Mi%20código%20es%20${tempVerificationCode}%20y%20mi%20referencia%20es%20${paymentReference || 'PENDIENTE'}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={cn(
@@ -628,17 +624,17 @@ const HomePage: React.FC = () => {
       </AnimatePresence>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-24 px-8 border border-white/10 rounded-[2.5rem] group bg-zinc-950">
+      <section className="relative overflow-hidden py-16 sm:py-24 px-5 sm:px-8 border border-white/10 rounded-[2rem] sm:rounded-[2.5rem] group bg-zinc-950 mt-2 sm:mt-0">
         {/* Depth Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/80 to-transparent z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t sm:bg-gradient-to-r from-zinc-950 via-zinc-950/90 sm:via-zinc-950/80 to-transparent z-10" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent z-10" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-zinc-950 z-10" />
 
-        <div className="relative z-20 max-w-2xl space-y-8">
+        <div className="relative z-20 max-w-2xl space-y-6 sm:space-y-8 text-center sm:text-left flex flex-col items-center sm:items-start mx-auto sm:mx-0 mt-32 sm:mt-0">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.2em]"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[10px] sm:text-xs font-black uppercase tracking-[0.2em]"
           >
             <Zap size={14} className="animate-pulse" /> Torneos en Vivo
           </motion.div>
@@ -646,7 +642,7 @@ const HomePage: React.FC = () => {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.8, ease: "circOut" }}
-            className="text-6xl md:text-8xl font-display uppercase italic leading-[0.85] tracking-tighter"
+            className="text-5xl sm:text-6xl md:text-8xl font-display uppercase italic leading-[0.85] tracking-tighter"
           >
             Domina el <br /><span className="text-primary drop-shadow-[0_0_15px_rgba(var(--color-primary),0.3)]">Campo de Juego</span>
           </motion.h1>
@@ -654,7 +650,7 @@ const HomePage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-text/60 text-lg max-w-md leading-relaxed"
+            className="text-text/60 text-sm sm:text-lg max-w-[280px] sm:max-w-md leading-relaxed"
           >
             Regístrate en los torneos más competitivos de Venezuela 🇻🇪. Gana premios, sube en el ranking y demuestra quién es el mejor de la región.
           </motion.p>
@@ -663,17 +659,17 @@ const HomePage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="flex flex-wrap gap-4 pt-4"
+            className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 pt-4 w-full sm:w-auto"
           >
             <button 
               onClick={() => document.getElementById('tournaments-section')?.scrollIntoView({ behavior: 'smooth' })}
-              className="bg-primary hover:bg-white text-black px-8 py-4 rounded-2xl font-display text-lg uppercase italic skew-x-[-15deg] transition-all flex items-center gap-3 shadow-[0_0_20px_rgba(var(--color-primary),0.2)] hover:shadow-primary/40"
+              className="w-full sm:w-auto justify-center bg-primary hover:bg-white text-black px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl font-display text-base sm:text-lg uppercase italic skew-x-[-15deg] transition-all flex items-center gap-3 shadow-[0_0_20px_rgba(var(--color-primary),0.2)] hover:shadow-primary/40"
             >
               Explorar Torneos
             </button>
             <Link 
               to="/live"
-              className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-8 py-4 rounded-2xl font-display text-lg uppercase italic skew-x-[-15deg] transition-all flex items-center gap-3"
+              className="w-full sm:w-auto justify-center bg-white/5 hover:bg-white/10 text-white border border-white/10 px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl font-display text-base sm:text-lg uppercase italic skew-x-[-15deg] transition-all flex items-center gap-3"
             >
               Ver En Vivo
             </Link>
@@ -681,7 +677,7 @@ const HomePage: React.FC = () => {
         </div>
 
         {/* Animated Background Image */}
-        <div className="absolute top-0 right-0 w-full lg:w-3/4 h-full pointer-events-none overflow-hidden">
+        <div className="absolute top-0 right-0 w-full sm:w-3/4 h-full pointer-events-none overflow-hidden sm:top-0 -top-20">
            <motion.img 
             initial={{ scale: 1.1, opacity: 0.2 }}
             animate={{ scale: 1, opacity: 0.3 }}
@@ -697,8 +693,8 @@ const HomePage: React.FC = () => {
       {/* Featured Games Section */}
       <section id="featured-games-section" className="space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-4">
-          <h2 className="text-3xl font-display uppercase italic tracking-wider flex items-center gap-3">
-            <Zap className="text-primary" /> Juegos Populares
+          <h2 className="text-2xl sm:text-3xl font-display uppercase italic tracking-wider flex items-center gap-2 sm:gap-3">
+            <Zap className="text-primary sm:w-8 sm:h-8 w-6 h-6" /> Juegos Populares
           </h2>
           {isAdmin && (
             <div className="flex items-center gap-3">
@@ -769,11 +765,11 @@ const HomePage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4 z-10">
-                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{game.genre}</span>
-                  <h3 className="text-lg font-display uppercase tracking-tight text-white flex items-center gap-2">
-                    <IconComponent size={18} className="text-primary shrink-0" />
-                    <span className="truncate">{game.name}</span>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3 sm:p-4 z-10">
+                  <span className="text-[9px] sm:text-[10px] font-bold text-primary uppercase tracking-widest truncate">{game.genre}</span>
+                  <h3 className="text-sm sm:text-lg font-display uppercase tracking-tight text-white flex items-center gap-1.5 sm:gap-2">
+                    <IconComponent size={16} className="text-primary shrink-0 sm:w-[18px] sm:h-[18px]" />
+                    <span className="truncate leading-tight">{game.name}</span>
                   </h3>
                 </div>
               </motion.div>
@@ -882,8 +878,8 @@ const HomePage: React.FC = () => {
       {/* Tournament Grid */}
       <section id="tournaments-section" className="space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-6 gap-4">
-          <h2 className="text-3xl font-display uppercase italic tracking-wider flex items-center gap-3">
-            <Trophy className="text-primary" /> Torneos Disponibles
+          <h2 className="text-2xl sm:text-3xl font-display uppercase italic tracking-wider flex items-center gap-2 sm:gap-3">
+            <Trophy className="text-primary sm:w-8 sm:h-8 w-6 h-6" /> Torneos Disponibles
           </h2>
           <button
             onClick={() => setIsTourOpen(true)}
@@ -926,7 +922,9 @@ const HomePage: React.FC = () => {
             >
               {tournaments.map((tournament, idx) => {
                 const isExpanded = expandedId === tournament.id;
-                const isRegistered = userRegistrations[tournament.id];
+                const regStatus = userRegistrations[tournament.id];
+                const isRegistered = regStatus === 'approved';
+                const isPending = regStatus === 'pending';
                 const isNew = (() => {
                   if (!tournament.createdAt) return false;
                   try {
@@ -993,6 +991,11 @@ const HomePage: React.FC = () => {
                              <CheckCircle2 size={10} /> INSCRITO
                            </span>
                          )}
+                         {isPending && (
+                           <span className="px-2 py-1 bg-yellow-600 text-white text-[10px] font-bold uppercase tracking-widest border border-yellow-400/30 shadow-lg flex items-center gap-1 skew-x-[-10deg]">
+                             <Clock size={10} /> EN REVISIÓN
+                           </span>
+                         )}
                          {tournament.status === 'ongoing' ? (
                            <span className="px-2 py-1 bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest border border-red-400/30 animate-pulse flex items-center gap-1">
                              <div className="w-1 h-1 bg-white rounded-full" /> EN VIVO
@@ -1010,12 +1013,12 @@ const HomePage: React.FC = () => {
                        </div>
                     </div>
   
-                    <div className="p-6 space-y-4">
+                    <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                       <div 
                         className="cursor-pointer"
                         onClick={() => setExpandedId(isExpanded ? null : tournament.id)}
                       >
-                        <h3 className="text-xl font-bold font-display uppercase tracking-tight group-hover:text-primary transition-colors text-text flex items-center gap-3">
+                        <h3 className="text-lg sm:text-xl font-bold font-display uppercase tracking-tight group-hover:text-primary transition-colors text-text flex items-center gap-2 sm:gap-3">
                           {tournament.name}
                           {isNew && (
                             <span className="flex h-2 w-2 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.8)]" title="Torneo Reciente" />
@@ -1101,7 +1104,7 @@ const HomePage: React.FC = () => {
                       </AnimatePresence>
   
                         <div className="flex flex-col gap-2 pt-2">
-                          {!isRegistered ? (
+                          {!isRegistered && !isPending ? (
                             <button 
                               onClick={() => initiateQuickRegister(tournament)}
                               disabled={registeringId === tournament.id || tournament.status !== 'upcoming' || (tournament.registeredParticipants >= tournament.maxParticipants)}
@@ -1123,6 +1126,10 @@ const HomePage: React.FC = () => {
                                (tournament.registeredParticipants >= tournament.maxParticipants) ? 'Cupos Llenos' :
                                'Inscribirme Ahora'}
                             </button>
+                          ) : isPending ? (
+                            <div className="w-full py-3 flex items-center justify-center gap-2 text-yellow-500 text-[10px] font-black uppercase tracking-widest bg-yellow-500/10 border border-yellow-500/20 skew-x-[-10deg]">
+                              <Clock size={12} /> Pago en Revisión
+                            </div>
                           ) : (
                             <div className="w-full py-3 flex items-center justify-center gap-2 text-green-500 text-[10px] font-black uppercase tracking-widest bg-green-500/10 border border-green-500/20 skew-x-[-10deg]">
                               <CheckCircle2 size={12} /> Ya estás Inscrito
@@ -1133,7 +1140,7 @@ const HomePage: React.FC = () => {
                             to={`/tournament/${tournament.id}`}
                             className="block w-full text-center py-3 bg-white/5 text-white font-display uppercase skew-x-[-10deg] border border-white/10 hover:bg-white/10 transition-colors"
                           >
-                            Ver Detalles {isRegistered && 'del Torneo'}
+                            Ver Detalles {(isRegistered || isPending) && 'del Torneo'}
                           </Link>
                         </div>
                     </div>
@@ -1190,20 +1197,10 @@ const HomePage: React.FC = () => {
 
                 <div className="space-y-2">
                   <h2 className="text-2xl sm:text-3xl font-display uppercase italic tracking-tighter leading-tight">
-                    {(!successData.tournament.entryFee || 
-                      ['gratis', 'free', '0'].includes(successData.tournament.entryFee.toString().toLowerCase().trim())) ? (
-                      <>¡Inscripción<br /><span className="text-primary">Completada!</span></>
-                    ) : (
-                      <>¡Solicitud de <br /><span className="text-primary">Inscripción Enviada!</span></>
-                    )}
+                    ¡Solicitud de <br /><span className="text-primary">Inscripción Enviada!</span>
                   </h2>
                   <p className="text-gray-400 text-xs sm:text-sm max-w-xs mx-auto leading-relaxed">
-                    {(!successData.tournament.entryFee || 
-                      ['gratis', 'free', '0'].includes(successData.tournament.entryFee.toString().toLowerCase().trim())) ? (
-                      `¡Te has inscrito correctamente en "${successData.tournament.name}" de forma directa y gratuita! Tu cupo está asegurado.`
-                    ) : (
-                      `Tu registro para "${successData.tournament.name}" está pendiente de validación. Envía tu comprobante ahora.`
-                    )}
+                    Tu registro para "{successData.tournament.name}" está pendiente de validación por un administrador.
                   </p>
                 </div>
 
@@ -1222,7 +1219,7 @@ const HomePage: React.FC = () => {
                   {(!(!successData.tournament.entryFee || 
                      ['gratis', 'free', '0'].includes(successData.tournament.entryFee.toString().toLowerCase().trim()))) ? (
                     <a 
-                      href={`https://wa.me/584142943532?text=Hola,%20acabo%20de%20inscribirme%20en%20el%20torneo%20"${successData.tournament.name}".%20Aquí%20adjunto%20mi%20comprobante%20de%20pago.%20Mi%20código%20de%20verificación%20es:%20${successData.code}`}
+                      href={`https://wa.me/584124780457?text=Hola,%20acabo%20de%20inscribirme%20en%20el%20torneo%20"${successData.tournament.name}".%20Aquí%20adjunto%20mi%20comprobante%20de%20pago.%20Mi%20código%20de%20verificación%20es:%20${successData.code}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full bg-[#25D366] hover:bg-white hover:text-[#25D366] text-white py-3.5 sm:py-4 rounded-xl font-display uppercase italic text-sm sm:text-lg transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-green-500/20"

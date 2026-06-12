@@ -117,13 +117,10 @@ export const tournamentService = {
         userName,
         photoURL,
         registeredAt: serverTimestamp(),
-        paymentStatus: 'approved',
+        paymentStatus: 'pending',
         paymentCode,
         gameId: gameId || '',
         gameNick: gameNick || ''
-      });
-      await updateDoc(doc(db, 'tournaments', tournamentId), {
-        registeredParticipants: increment(1)
       });
 
       // Fetch tournament data for notification content
@@ -134,8 +131,8 @@ export const tournamentService = {
       if (tournamentData) {
         await userService.sendNotification(
           userId,
-          'Registro Confirmado',
-          `Te has inscrito exitosamente en el torneo "${tournamentData.name}". ¡Prepárate para la batalla!`,
+          'Registro Pendiente',
+          `Tu inscripción gratuita en "${tournamentData.name}" está pendiente de validación por un administrador.`,
           'registration_success',
           `/tournament/${tournamentId}`
         );
@@ -143,12 +140,12 @@ export const tournamentService = {
 
       // Notify tournament creator
       try {
-        if (tournamentSnap.exists()) {
+        if (tournamentSnap.exists() && tournamentData) {
           if (tournamentData.createdBy && tournamentData.createdBy !== userId) {
             await userService.sendNotification(
               tournamentData.createdBy,
               'Nuevo Participante',
-              `${userName} se ha inscrito en tu torneo "${tournamentData.name}".`,
+              `${userName} se ha preinscrito (gratis) en tu torneo "${tournamentData.name}" y requiere confirmación.`,
               'registration',
               `/tournament/${tournamentId}`
             );
@@ -229,6 +226,21 @@ export const tournamentService = {
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path, auth);
     });
+  },
+
+  async getRegistrationStatus(tournamentId: string, userId: string) {
+    const path = `tournaments/${tournamentId}/participants/${userId}`;
+    try {
+      const docSnap = await getDoc(doc(db, 'tournaments', tournamentId, 'participants', userId));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        return data.paymentStatus || 'approved'; // Default to approved if missing for backward compatibility
+      }
+      return null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path, auth);
+      return null;
+    }
   },
 
   async isRegistered(tournamentId: string, userId: string) {

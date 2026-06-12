@@ -151,6 +151,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <NotificationsBell />
                 <NavLink to="/profile" icon={User}>Perfil</NavLink>
                 {isAdmin && <NavLink to="/admin" icon={Shield}>Admin</NavLink>}
+                {isAdmin && <NavLink to="/forum" icon={MessageSquare}>Foro</NavLink>}
                 <motion.button 
                   onClick={handleLogout}
                   whileHover={{ scale: 1.05, y: -1 }}
@@ -256,6 +257,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   <>
                     <MobileNavLink to="/profile" icon={User} active={location.pathname === '/profile'}>Perfil</MobileNavLink>
                     {isAdmin && <MobileNavLink to="/admin" icon={Shield} active={location.pathname === '/admin'}>Admin</MobileNavLink>}
+                    {isAdmin && <MobileNavLink to="/forum" icon={MessageSquare} active={location.pathname === '/forum'}>Foro</MobileNavLink>}
                   </>
                 )}
               </motion.div>
