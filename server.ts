@@ -20,6 +20,7 @@ import fs from "fs";
 import axios from "axios";
 import { Resend } from "resend";
 import { GoogleGenAI } from "@google/genai";
+import nodemailer from "nodemailer";
 
 // Initialize Firebase config
 let clientConfig: any;
@@ -60,7 +61,8 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   const debugLog = (msg: string) => {
     const entry = `[${new Date().toISOString()}] ${msg}\n`;
@@ -288,6 +290,91 @@ async function startServer() {
       });
       res.json({ success: true });
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Extract payment reference using Gemini
+  app.post("/api/extract-payment-reference", async (req, res) => {
+    const { imageBase64, mimeType } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ error: "Image is required" });
+    }
+
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      return res.status(500).json({ error: "Gemini API key is not configured" });
+    }
+
+    try {
+      const ai = getGemini();
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType || "image/jpeg",
+                data: imageBase64,
+              },
+            },
+            {
+              text: "Extrae de esta captura de pago móvil los últimos 8 dígitos del número de referencia. Devuelve SOLO esos 8 dígitos numéricos, sin espacios ni texto adicional. Si no encuentras la referencia, devuelve 'NO_ENCONTRADO'.",
+            },
+          ],
+        },
+      });
+
+      res.json({ reference: response.text?.trim() });
+    } catch (err: any) {
+      console.error("Gemini reference extraction error:", err);
+      res.status(500).json({ error: "Error procesando la imagen con IA", details: err.message });
+    }
+  });
+
+  // Email API: Registration Alert for Admin
+  app.post("/api/emails/registration-alert", async (req, res) => {
+    const { participantName, tournamentName, reference } = req.body;
+    
+    if (!participantName || !tournamentName) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const emailUser = process.env.GMAIL_USER || 'alexparababi23@gmail.com';
+    const emailPass = process.env.GMAIL_APP_PASSWORD;
+
+    if (!emailPass) {
+      return res.status(500).json({ error: "Gmail App Password not configured" });
+    }
+
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: emailUser,
+          pass: emailPass
+        }
+      });
+
+      await transporter.sendMail({
+        from: `"Arena Torneos" <${emailUser}>`,
+        to: "alexparababi23@gmail.com",
+        subject: `Nuevo Participante Registrado: ${tournamentName}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; background: #000; color: #fff; border-radius: 20px; border: 1px solid #10b981;">
+            <h1 style="color: #10b981; font-style: italic; text-transform: uppercase;">¡Nuevo Registro!</h1>
+            <p>Un nuevo jugador se ha inscrito en el torneo <strong>${tournamentName}</strong>.</p>
+            
+            <div style="margin-top: 30px; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);">
+              <p style="margin: 0;"><strong>Jugador:</strong> ${participantName}</p>
+              <p style="margin: 5px 0 0 0;"><strong>Referencia de Pago:</strong> ${reference || 'N/A'}</p>
+            </div>
+          </div>
+        `
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Gmail configuration error:", error);
       res.status(500).json({ error: error.message });
     }
   });

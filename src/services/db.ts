@@ -112,31 +112,44 @@ export const tournamentService = {
   async registerParticipant(tournamentId: string, userId: string, userName: string, photoURL: string, paymentCode: string, gameId?: string, gameNick?: string) {
     const path = `tournaments/${tournamentId}/participants/${userId}`;
     try {
-      await setDoc(doc(db, 'tournaments', tournamentId, 'participants', userId), {
+      const participantRef = doc(db, 'tournaments', tournamentId, 'participants', userId);
+      const docSnap = await getDoc(participantRef);
+      const isAlreadyApproved = docSnap.exists() && docSnap.data().paymentStatus === 'approved';
+
+      await setDoc(participantRef, {
         userId,
         userName,
         photoURL,
         registeredAt: serverTimestamp(),
-        paymentStatus: 'pending',
+        paymentStatus: 'approved',
         paymentCode,
         gameId: gameId || '',
         gameNick: gameNick || ''
       });
 
+      // Update tournament participant count only if they were not already approved
+      const tournamentRef = doc(db, 'tournaments', tournamentId);
+      if (!isAlreadyApproved) {
+        await updateDoc(tournamentRef, {
+          registeredParticipants: increment(1)
+        });
+      }
+
       // Fetch tournament data for notification content
-      const tournamentSnap = await getDoc(doc(db, 'tournaments', tournamentId));
+      const tournamentSnap = await getDoc(tournamentRef);
       const tournamentData = tournamentSnap.exists() ? tournamentSnap.data() : null;
 
       // Notify participant
       if (tournamentData) {
         await userService.sendNotification(
           userId,
-          'Registro Pendiente',
-          `Tu inscripción gratuita en "${tournamentData.name}" está pendiente de validación por un administrador.`,
+          '¡Inscripción Confirmada!',
+          `Te has inscrito exitosamente en "${tournamentData.name}". ¡Prepárate para competir!`,
           'registration_success',
           `/tournament/${tournamentId}`
         );
       }
+
 
       // Notify tournament creator
       try {

@@ -176,11 +176,8 @@ service cloud.firestore {
           (isValidParticipant(incoming()) && incoming().registeredAt == request.time && incoming().userId == request.auth.uid) ||
           (incoming().keys().hasAll(['isTyping', 'lastTypingAt', 'userName']) && incoming().keys().size() <= 6)
         );
-        // Admin can update everything, or Owner can update their typing status or registration info (if pending)
-        allow update: if isAdmin() || (isOwner(participantId) && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['isTyping', 'lastTypingAt', 'userName']) ||
-          (existing().paymentStatus == 'pending' && !incoming().diff(existing()).affectedKeys().hasAny(['userId', 'registeredAt']))
-        ));
+        // Admin can update everything, or Owner can update their typing status or registration info
+        allow update: if isAdmin() || (isOwner(participantId) && incoming().userId == request.auth.uid);
         allow delete: if isOwner(participantId) || isAdmin();
       }
 

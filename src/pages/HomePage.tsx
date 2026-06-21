@@ -80,6 +80,7 @@ const HomePage: React.FC = () => {
   const [confirmingTournament, setConfirmingTournament] = useState<any>(null);
   const [confirmCountdown, setConfirmCountdown] = useState(0);
   const [paymentReference, setPaymentReference] = useState('');
+  const [isExtractingRef, setIsExtractingRef] = useState(false);
   const [tempVerificationCode, setTempVerificationCode] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [userRegistrations, setUserRegistrations] = useState<Record<string, string | null>>({});
@@ -351,6 +352,42 @@ const HomePage: React.FC = () => {
     }
   };
 
+  const handleExtractReference = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExtractingRef(true);
+    try {
+      const base64Str = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const [mimeType, base64] = base64Str.split(';base64,');
+
+      const res = await fetch('/api/extract-payment-reference', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64, mimeType: mimeType.split(':')[1] })
+      });
+      const data = await res.json();
+      if (data.reference && data.reference !== 'NO_ENCONTRADO') {
+        // extract numbers only
+        const numbers = data.reference.replace(/[^0-9]/g, '');
+        setPaymentReference(numbers.slice(-8));
+        showToast('Referencia extraída exitosamente.', 'success');
+      } else {
+        showToast('No se pudo encontrar la referencia en la imagen.', 'error');
+      }
+    } catch (err) {
+      showToast('Error al analizar el comprobante.', 'error');
+    } finally {
+      setIsExtractingRef(false);
+    }
+  };
+
   const handleQuickRegister = async () => {
     if (!confirmingTournament) return;
     const tournament = confirmingTournament;
@@ -380,6 +417,21 @@ const HomePage: React.FC = () => {
           profile?.gameId,
           profile?.gameNick
         );
+
+        try {
+          await fetch('/api/emails/registration-alert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              participantName: profile?.displayName || user.displayName || 'Jugador',
+              tournamentName: tournament.name,
+              reference: 'GRATUITO'
+            })
+          });
+        } catch (e) {
+          console.error("Error sending registration alert", e);
+        }
+
         setUserRegistrations(prev => ({ ...prev, [tournament.id]: 'pending' }));
         setSuccessData({ tournament, code: verificationCode });
         setShowSuccessModal(true);
@@ -396,6 +448,21 @@ const HomePage: React.FC = () => {
           profile?.gameId,
           profile?.gameNick
         );
+
+        try {
+          await fetch('/api/emails/registration-alert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              participantName: profile?.displayName || user.displayName || 'Jugador',
+              tournamentName: tournament.name,
+              reference: paymentReference
+            })
+          });
+        } catch (e) {
+          console.error("Error sending registration alert", e);
+        }
+
         setUserRegistrations(prev => ({ ...prev, [tournament.id]: 'pending' }));
         setSuccessData({ tournament, code: verificationCode });
         setShowSuccessModal(true);
@@ -540,18 +607,35 @@ const HomePage: React.FC = () => {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[9px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest ml-1">Referencia de Pago</label>
-                        <div className="relative">
-                          <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={14} />
-                          <input 
-                            type="text"
-                            value={paymentReference}
-                            disabled={registeringId === confirmingTournament.id}
-                            onChange={(e) => setPaymentReference(e.target.value)}
-                            placeholder="Ej: 123456"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl sm:rounded-2xl py-3.5 sm:py-4 pl-11 pr-4 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-xs sm:text-sm font-mono tracking-widest disabled:opacity-50"
-                          />
+                        <label className="text-[9px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest ml-1">Referencia o Captura de Pago</label>
+                        <div className="relative flex gap-2">
+                          <div className="relative flex-1">
+                            <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" size={14} />
+                            <input 
+                              type="text"
+                              value={paymentReference}
+                              disabled={registeringId === confirmingTournament.id || isExtractingRef}
+                              onChange={(e) => setPaymentReference(e.target.value)}
+                              placeholder="Ej: 123456"
+                              className="w-full bg-black/40 border border-white/10 rounded-xl sm:rounded-2xl py-3.5 sm:py-4 pl-11 pr-4 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-xs sm:text-sm font-mono tracking-widest disabled:opacity-50"
+                            />
+                          </div>
+                          
+                          <label className={`w-14 shrink-0 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors ${isExtractingRef ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={handleExtractReference} 
+                            />
+                            {isExtractingRef ? (
+                              <Loader2 className="animate-spin text-primary" size={20} />
+                            ) : (
+                              <Upload className="text-primary" size={20} />
+                            )}
+                          </label>
                         </div>
+                        {isExtractingRef && <p className="text-[10px] text-primary animate-pulse ml-1">Extrayendo datos de la captura...</p>}
                       </div>
 
                       <a 
@@ -1197,10 +1281,20 @@ const HomePage: React.FC = () => {
 
                 <div className="space-y-2">
                   <h2 className="text-2xl sm:text-3xl font-display uppercase italic tracking-tighter leading-tight">
-                    ¡Solicitud de <br /><span className="text-primary">Inscripción Enviada!</span>
+                    {(!successData.tournament.entryFee || 
+                      ['gratis', 'free', '0'].includes(successData.tournament.entryFee.toString().toLowerCase().trim())) ? (
+                      <>¡Inscripción<br /><span className="text-primary">Confirmada!</span></>
+                    ) : (
+                      <>¡Solicitud de <br /><span className="text-primary">Inscripción Enviada!</span></>
+                    )}
                   </h2>
                   <p className="text-gray-400 text-xs sm:text-sm max-w-xs mx-auto leading-relaxed">
-                    Tu registro para "{successData.tournament.name}" está pendiente de validación por un administrador.
+                    {(!successData.tournament.entryFee || 
+                      ['gratis', 'free', '0'].includes(successData.tournament.entryFee.toString().toLowerCase().trim())) ? (
+                      `¡Te has inscrito correctamente en "${successData.tournament.name}"!`
+                    ) : (
+                      `Tu registro para "${successData.tournament.name}" está pendiente de validación por un administrador.`
+                    )}
                   </p>
                 </div>
 
