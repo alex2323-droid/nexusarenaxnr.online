@@ -32,9 +32,35 @@ const TournamentPage: React.FC = () => {
     try {
       const base64Str = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
         reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new window.Image();
+          img.src = event.target?.result as string;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const MAX_SIZE = 800;
+            if (width > height) {
+              if (width > MAX_SIZE) {
+                height *= MAX_SIZE / width;
+                width = MAX_SIZE;
+              }
+            } else {
+              if (height > MAX_SIZE) {
+                width *= MAX_SIZE / height;
+                height = MAX_SIZE;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
+          };
+          img.onerror = reject;
+        };
+        reader.onerror = reject;
       });
 
       const [mimeType, base64] = base64Str.split(';base64,');
@@ -45,6 +71,10 @@ const TournamentPage: React.FC = () => {
         body: JSON.stringify({ imageBase64: base64, mimeType: mimeType.split(':')[1] })
       });
       const data = await res.json();
+      if (data.error) {
+        showToast(data.error, 'error');
+        return;
+      }
       if (data.reference && data.reference !== 'NO_ENCONTRADO') {
         const numbers = data.reference.replace(/[^0-9]/g, '');
         setRegForm(prev => ({ ...prev, reference: numbers.slice(-8) }));

@@ -308,8 +308,7 @@ async function startServer() {
 
     try {
       const ai = getGemini();
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const params = {
         contents: {
           parts: [
             {
@@ -319,11 +318,35 @@ async function startServer() {
               },
             },
             {
-              text: "Extrae de esta captura de pago móvil los últimos 8 dígitos del número de referencia. Devuelve SOLO esos 8 dígitos numéricos, sin espacios ni texto adicional. Si no encuentras la referencia, devuelve 'NO_ENCONTRADO'.",
+              text: "Extrae de esta captura de pago móvil, transferencia o recibo el número de referencia u operación. Una vez que encuentres el número de referencia, devuelve SOLO sus últimos 8 dígitos numéricos, sin espacios ni letras. Es indispensable que devuelvas exactamente 8 dígitos. Si no encuentras la referencia, devuelve 'NO_ENCONTRADO'.",
             },
           ],
         },
-      });
+      };
+
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          ...params
+        });
+      } catch (firstErr: any) {
+        const errorString = String(firstErr);
+        if (errorString.includes('503') || errorString.includes('UNAVAILABLE') || firstErr?.status === 503 || errorString.includes('not found') || firstErr?.status === 404) {
+          console.warn("Gemini 3.1-flash-lite unavailable, trying 2.5-flash-lite...");
+          try {
+            response = await ai.models.generateContent({
+              model: "gemini-2.5-flash-lite",
+              ...params
+            });
+          } catch (secondErr: any) {
+             console.warn("Gemini 2.5-flash-lite failed:", secondErr);
+             return res.status(503).json({ error: "Servicio de extracción no disponible por alta demanda. Por favor ingresa el número manualmente.", details: String(secondErr) });
+          }
+        } else {
+          throw firstErr;
+        }
+      }
 
       res.json({ reference: response.text?.trim() });
     } catch (err: any) {
@@ -547,7 +570,7 @@ Lineamientos indispensables de respuesta:
       prompt += `${formattedDiagnostics}\nNueva pregunta o problema del Usuario:\n${message}\n\nRespuesta del Soporte IA:`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-flash",
         contents: prompt,
         config: {
           systemInstruction: systemInstruction,
