@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, User } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, User, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -38,3 +38,26 @@ export const signInWithGoogle = async () => {
     throw error;
   }
 };
+
+export const loginWithEmail = async (email: string, pass: string) => {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, pass);
+    return result;
+  } catch (error: any) {
+    console.error("Login try error:", error);
+    alert(`Error al iniciar sesión: ${error.message}`);
+    throw error;
+  }
+};
+
+export const registerWithEmail = async (email: string, pass: string) => {
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    return result;
+  } catch (error: any) {
+    console.error("Register try error:", error);
+    alert(`Error al registrar: ${error.message}`);
+    throw error;
+  }
+};
+

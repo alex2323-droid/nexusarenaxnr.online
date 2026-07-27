@@ -1,15 +1,40 @@
 import React, { useState } from 'react';
-import { Trophy, ChevronRight, Zap, Target, Loader2, Gamepad2, Shield } from 'lucide-react';
-import { signInWithGoogle } from '../lib/firebase';
-import { motion } from 'motion/react';
+import { Trophy, ChevronRight, Zap, Target, Loader2, Gamepad2, Shield, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { signInWithGoogle, loginWithEmail, registerWithEmail, auth } from '../lib/firebase';
+import { updateProfile } from 'firebase/auth';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
       await signInWithGoogle();
+    } catch (error) {
+      console.error(error);
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      if (isRegistering) {
+        const result = await registerWithEmail(email, password);
+        if (result.user) {
+          await updateProfile(result.user, {
+            displayName: username
+          });
+        }
+      } else {
+        await loginWithEmail(email, password);
+      }
     } catch (error) {
       console.error(error);
       setIsLoading(false);
@@ -27,15 +52,15 @@ export default function LoginPage() {
 
       {/* Floating Elements */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <motion.div
-           animate={{ y: [0, -20, 0], opacity: [0.3, 0.6, 0.3] }}
-           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-           className="absolute top-[20%] left-[10%] w-64 h-64 bg-primary/10 rounded-full blur-[80px]"
+        <motion.div 
+          animate={{ y: [0, -20, 0], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[20%] left-[10%] w-64 h-64 bg-primary/10 rounded-full blur-[80px]"
         />
-        <motion.div
-           animate={{ y: [0, 20, 0], opacity: [0.2, 0.5, 0.2] }}
-           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-           className="absolute bottom-[20%] right-[10%] w-72 h-72 bg-rose-500/10 rounded-full blur-[90px]"
+        <motion.div 
+          animate={{ y: [0, 20, 0], opacity: [0.2, 0.5, 0.2] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute bottom-[20%] right-[10%] w-72 h-72 bg-rose-500/10 rounded-full blur-[90px]"
         />
       </div>
 
@@ -51,20 +76,20 @@ export default function LoginPage() {
           <div className="absolute bottom-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/40 to-transparent" />
           
           <div className="p-6 sm:p-8">
-            <div className="flex flex-col items-center mb-8 sm:mb-10 relative">
+            <div className="flex flex-col items-center mb-8 relative">
               <motion.div 
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.2 }}
-                className="w-20 h-20 sm:w-24 sm:h-24 mb-6 bg-gradient-to-br from-primary via-rose-500 to-indigo-600 rounded-[1.5rem] sm:rounded-[2rem] p-[2px] relative skew-x-[0deg]"
+                className="w-16 h-16 sm:w-20 sm:h-20 mb-4 bg-gradient-to-br from-primary via-rose-500 to-indigo-600 rounded-[1.5rem] p-[2px] relative skew-x-[0deg]"
               >
                 <div className="absolute inset-0 bg-primary/30 blur-2xl rounded-full" />
-                <div className="w-full h-full bg-zinc-950 rounded-[22px] sm:rounded-[30px] flex items-center justify-center relative z-10 overflow-hidden">
+                <div className="w-full h-full bg-zinc-950 rounded-[22px] flex items-center justify-center relative z-10 overflow-hidden">
                   <img src="/logo.png" alt="Nexus Arena" className="w-[70%] h-[70%] object-contain" onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.parentElement?.querySelector('svg')?.classList.remove('hidden');
                   }} />
-                  <Trophy className="text-white drop-shadow-[0_0_15px_rgba(59,130,246,0.8)] hidden" size={32} />
+                  <Trophy className="text-white drop-shadow-[0_0_15px_rgba(59,130,246,0.8)] hidden" size={24} />
                 </div>
               </motion.div>
               
@@ -74,62 +99,114 @@ export default function LoginPage() {
                 transition={{ delay: 0.3 }}
                 className="text-center"
               >
-                <h1 className="text-4xl sm:text-5xl tracking-tighter uppercase italic font-display text-white mb-2 leading-[0.8] drop-shadow-md">
-                  Nexus <br/><span className="text-primary tracking-tight">Arena</span>
+                <h1 className="text-3xl sm:text-4xl tracking-tighter uppercase italic font-display text-white mb-2 leading-[0.8] drop-shadow-md">
+                  Nexus <span className="text-primary tracking-tight">Arena</span>
                 </h1>
-                <p className="text-[9px] sm:text-[10px] text-zinc-400 font-mono tracking-[0.2em] uppercase flex items-center justify-center gap-2 mt-4 ml-1">
+                <p className="text-[9px] text-zinc-400 font-mono tracking-[0.2em] uppercase flex items-center justify-center gap-2 mt-4 ml-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
                   Plataforma Competitiva
                 </p>
               </motion.div>
             </div>
 
-            <div className="space-y-2.5 sm:space-y-3 mb-8 sm:mb-10">
-              {[
-                { icon: Trophy, text: "Compite en torneos pro", color: "text-yellow-400", bg: "bg-yellow-400/10", border: 'border-yellow-400/20' },
-                { icon: Shield, text: "Matchmaking de alto nivel", color: "text-primary", bg: "bg-primary/10", border: 'border-primary/20' },
-                { icon: Gamepad2, text: "Gana premios y prestigio", color: "text-rose-400", bg: "bg-rose-400/10", border: 'border-rose-400/20' }
-              ].map((feature, idx) => (
-                <motion.div 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + (idx * 0.1) }}
-                  key={idx} 
-                  className={`flex items-center gap-3 sm:gap-4 text-[12px] sm:text-[13px] text-zinc-300 font-medium ${feature.bg} p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border ${feature.border} backdrop-blur-sm shadow-inner`}
-                >
-                  <div className={`p-1.5 ${feature.bg} rounded-xl border ${feature.border}`}>
-                    <feature.icon size={16} className={feature.color} />
-                  </div>
-                  <span className="tracking-wide uppercase font-display text-[10px] sm:text-[11px] font-bold skew-x-[-10deg] mt-0.5 text-white/90">{feature.text}</span>
-                </motion.div>
-              ))}
-            </div>
+            <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
+              <AnimatePresence mode="popLayout">
+                {isRegistering && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, y: -10 }}
+                    animate={{ opacity: 1, height: 'auto', y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -10 }}
+                    className="relative"
+                  >
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <UserIcon size={18} className="text-zinc-500" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Nombre de Usuario"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required={isRegistering}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-sans text-sm"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-            <motion.button
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleLogin}
-              disabled={isLoading}
-              className="w-full bg-white text-black py-3.5 sm:py-4 px-6 rounded-xl sm:rounded-2xl font-display text-base sm:text-lg uppercase italic font-black tracking-wider flex items-center justify-center gap-2 sm:gap-3 transition-colors hover:bg-zinc-200 shadow-[0_10px_30px_rgba(255,255,255,0.15)] hover:shadow-[0_10px_40px_rgba(255,255,255,0.25)] relative overflow-hidden group"
-            >
-              <div className="absolute inset-0 border-[2px] border-white/20 rounded-xl sm:rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              {isLoading ? (
-                <Loader2 className="animate-spin text-black" size={24} />
-              ) : (
-                <>
-                  <img 
-                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                    alt="Google"
-                    className="w-5 h-5 relative z-10 drop-shadow-sm"
-                  />
-                  <span className="relative z-10 mt-0.5 skew-x-[-10deg]">Acceder con Google</span>
-                  <ChevronRight size={18} className="relative z-10 opacity-50" />
-                </>
-              )}
-            </motion.button>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail size={18} className="text-zinc-500" />
+                </div>
+                <input
+                  type="email"
+                  placeholder="Correo Electrónico"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-sans text-sm"
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock size={18} className="text-zinc-500" />
+                </div>
+                <input
+                  type="password"
+                  placeholder="Contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-zinc-500 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all font-sans text-sm"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-primary text-white py-3.5 px-6 rounded-xl font-display text-sm uppercase italic font-bold tracking-wider flex items-center justify-center gap-2 transition-colors hover:bg-blue-600 shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] relative overflow-hidden group mt-2"
+              >
+                {isLoading ? (
+                  <Loader2 className="animate-spin" size={20} />
+                ) : (
+                  <>
+                    <span className="skew-x-[-10deg]">{isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'}</span>
+                    <ChevronRight size={18} className="opacity-70 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="flex flex-col items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setIsRegistering(!isRegistering)}
+                className="text-xs text-zinc-400 hover:text-white transition-colors font-sans"
+              >
+                {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+              </button>
+
+              <div className="w-full flex items-center gap-3 opacity-50">
+                <div className="h-px bg-white/20 flex-1"></div>
+                <span className="text-[10px] uppercase tracking-widest text-white/50">O</span>
+                <div className="h-px bg-white/20 flex-1"></div>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                className="w-full bg-white text-black py-3 px-6 rounded-xl font-display text-sm uppercase italic font-bold tracking-wider flex items-center justify-center gap-3 transition-colors hover:bg-zinc-200 relative overflow-hidden group"
+              >
+                <img 
+                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                  alt="Google"
+                  className="w-4 h-4"
+                />
+                <span className="skew-x-[-10deg]">Continuar con Google</span>
+              </motion.button>
+            </div>
           </div>
           
           <div className="bg-white/[0.02] border-t border-white/5 p-4 text-center backdrop-blur-md">
