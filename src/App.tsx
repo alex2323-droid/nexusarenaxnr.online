@@ -38,14 +38,11 @@ const RootApp = () => {
     );
   }
 
-  if (!user) {
-    return <LoginPage />;
-  }
-
   return (
     <Layout>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={user ? <HomePage /> : <LoginPage />} />
         <Route path="/live" element={<LivePage />} />
         <Route path="/tournament/:id" element={<TournamentPage />} />
         <Route 

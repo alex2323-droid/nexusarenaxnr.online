@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, User, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -22,22 +22,6 @@ export const db = (firebaseConfig as any).firestoreDatabaseId
   : initializeFirestore(app, { experimentalForceLongPolling: true });
 
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-
-export const signInWithGoogle = async () => {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result;
-  } catch (error: any) {
-    console.error("Login try error:", error);
-    if (error.code === 'auth/unauthorized-domain') {
-      alert("Error: Este dominio no está autorizado para iniciar sesión. Por favor autoriza este dominio en tu consola de Firebase (Authentication > Configuración > Dominios autorizados).");
-    } else {
-      alert(`Error al iniciar sesión: ${error.message}`);
-    }
-    throw error;
-  }
-};
 
 export const loginWithEmail = async (email: string, pass: string) => {
   try {
@@ -45,7 +29,11 @@ export const loginWithEmail = async (email: string, pass: string) => {
     return result;
   } catch (error: any) {
     console.error("Login try error:", error);
-    alert(`Error al iniciar sesión: ${error.message}`);
+    if (error.code === 'auth/invalid-credential') {
+      alert("Error: Correo o contraseña incorrectos.");
+    } else {
+      alert(`Error al iniciar sesión: ${error.message}`);
+    }
     throw error;
   }
 };
@@ -56,7 +44,24 @@ export const registerWithEmail = async (email: string, pass: string) => {
     return result;
   } catch (error: any) {
     console.error("Register try error:", error);
-    alert(`Error al registrar: ${error.message}`);
+    if (error.code === 'auth/email-already-in-use') {
+      alert("Error: Ya existe una cuenta con este correo.");
+    } else if (error.code === 'auth/weak-password') {
+      alert("Error: La contraseña debe tener al menos 6 caracteres.");
+    } else {
+      alert(`Error al registrar: ${error.message}`);
+    }
+    throw error;
+  }
+};
+
+export const resetPassword = async (email: string) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert('Se ha enviado un correo para restablecer o crear tu contraseña. Revisa tu bandeja de entrada o spam.');
+  } catch (error: any) {
+    console.error('Password reset error:', error);
+    alert(`Error al enviar el correo: ${error.message}`);
     throw error;
   }
 };

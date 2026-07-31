@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Trophy, ChevronRight, Zap, Target, Loader2, Gamepad2, Shield, Mail, Lock, User as UserIcon } from 'lucide-react';
-import { signInWithGoogle, loginWithEmail, registerWithEmail, auth } from '../lib/firebase';
+import { loginWithEmail, registerWithEmail, resetPassword } from '../lib/firebase';
 import { updateProfile } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -10,13 +11,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const navigate = useNavigate();
 
-  const handleGoogleLogin = async () => {
+  const handleResetPassword = async () => {
+    if (!email) {
+      alert('Por favor ingresa tu correo electrónico para restablecer o crear tu contraseña.');
+      return;
+    }
     setIsLoading(true);
     try {
-      await signInWithGoogle();
+      await resetPassword(email);
     } catch (error) {
       console.error(error);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -35,6 +42,7 @@ export default function LoginPage() {
       } else {
         await loginWithEmail(email, password);
       }
+      navigate('/');
     } catch (error) {
       console.error(error);
       setIsLoading(false);
@@ -177,36 +185,24 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="flex flex-col items-center gap-4">
-              <button
-                type="button"
-                onClick={() => setIsRegistering(!isRegistering)}
-                className="text-xs text-zinc-400 hover:text-white transition-colors font-sans"
-              >
-                {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
-              </button>
-
-              <div className="w-full flex items-center gap-3 opacity-50">
-                <div className="h-px bg-white/20 flex-1"></div>
-                <span className="text-[10px] uppercase tracking-widest text-white/50">O</span>
-                <div className="h-px bg-white/20 flex-1"></div>
+              <div className="flex flex-col items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setIsRegistering(!isRegistering)}
+                  className="text-xs text-zinc-400 hover:text-white transition-colors font-sans"
+                >
+                  {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+                </button>
+                {!isRegistering && (
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    className="text-xs text-primary hover:text-blue-400 transition-colors font-sans"
+                  >
+                    ¿Olvidaste tu contraseña o iniciaste con Google antes? Crea una aquí.
+                  </button>
+                )}
               </div>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleGoogleLogin}
-                disabled={isLoading}
-                className="w-full bg-white text-black py-3 px-6 rounded-xl font-display text-sm uppercase italic font-bold tracking-wider flex items-center justify-center gap-3 transition-colors hover:bg-zinc-200 relative overflow-hidden group"
-              >
-                <img 
-                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                  alt="Google"
-                  className="w-4 h-4"
-                />
-                <span className="skew-x-[-10deg]">Continuar con Google</span>
-              </motion.button>
-            </div>
           </div>
           
           <div className="bg-white/[0.02] border-t border-white/5 p-4 text-center backdrop-blur-md">

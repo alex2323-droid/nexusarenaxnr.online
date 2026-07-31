@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { signInWithGoogle } from '../lib/firebase';
 import { auth } from '../lib/firebase';
 import { Trophy, User, MessageSquare, Bell, LogOut, Shield, Menu, X, Zap, Youtube, Radio, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -25,14 +24,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }, 450);
     return () => clearTimeout(timeout);
   }, [location.pathname]);
-
-  const handleLogin = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -165,7 +156,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </>
             ) : (
               <motion.button 
-                onClick={handleLogin}
+                onClick={() => navigate('/login')}
                 whileHover={{ scale: 1.05, skewX: -10 }}
                 whileTap={{ scale: 0.95 }}
                 transition={{ type: "spring", stiffness: 450, damping: 15 }}
@@ -301,7 +292,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
-                    handleLogin();
+                    navigate('/login');
                     setIsMenuOpen(false);
                   }}
                   className="w-full py-3 px-6 bg-gradient-to-r from-primary to-rose-500 text-black font-display text-xs font-black uppercase tracking-wider skew-x-[-10deg] hover:from-white hover:to-white transition-all shadow-[0_4px_15px_rgba(244,63,94,0.25)] flex items-center justify-center gap-2 cursor-pointer"
