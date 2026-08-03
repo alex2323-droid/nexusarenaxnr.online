@@ -4,7 +4,7 @@ import { tournamentService, userService, bracketService } from '../services/db';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, limit, getDocs, doc, getDoc, addDoc, serverTimestamp, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import axios from 'axios';
-import { Trophy, Plus, Minus, Settings, Trash2, Check, Users, Clock, CreditCard, Eye, History, X, AlertTriangle, Workflow, Mail } from 'lucide-react';
+import { Trophy, Plus, Minus, Settings, Trash2, Check, Users, Clock, CreditCard, Eye, History, X, AlertTriangle, Workflow, Mail, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -1785,16 +1785,48 @@ const AdminPage: React.FC = () => {
                             alt="" 
                           />
                           <div className="overflow-hidden">
-                            <p className="font-bold text-white truncate">{u.displayName}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-white truncate">{u.displayName}</p>
+                              {u.isAmbassador && (
+                                <span className="bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-0.5 shrink-0">
+                                  <Zap size={8} className="fill-current" /> Embajador
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{u.platform || 'PC'}</p>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => handleEditUserStats(u)}
-                          className="p-2.5 bg-white/5 hover:bg-primary hover:text-black rounded-lg transition-all text-primary border border-primary/20"
-                        >
-                          <Settings size={16} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const newStatus = !u.isAmbassador;
+                                await userService.updateProfile(u.id, { isAmbassador: newStatus });
+                                setUserSearchResults(prev => prev.map(usr => usr.id === u.id ? { ...usr, isAmbassador: newStatus } : usr));
+                                showToast(`${u.displayName} ahora ${newStatus ? 'es' : 'ya no es'} Embajador`);
+                              } catch (err) {
+                                console.error(err);
+                                showToast('Error al actualizar embajador', 'error');
+                              }
+                            }}
+                            className={cn(
+                              "p-2.5 rounded-lg transition-all border text-xs font-bold flex items-center gap-1.5",
+                              u.isAmbassador 
+                                ? "bg-amber-500/20 text-amber-500 border-amber-500/30 hover:bg-amber-500 hover:text-black" 
+                                : "bg-white/5 text-gray-400 border-white/10 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/30"
+                            )}
+                            title={u.isAmbassador ? "Remover de Embajadores" : "Hacer Embajador"}
+                          >
+                            <Zap size={14} className={u.isAmbassador ? "fill-current animate-pulse" : ""} />
+                            <span className="hidden sm:inline">{u.isAmbassador ? 'Quitar' : 'Hacer Embajador'}</span>
+                          </button>
+                          <button 
+                            onClick={() => handleEditUserStats(u)}
+                            className="p-2.5 bg-white/5 hover:bg-primary hover:text-black rounded-lg transition-all text-primary border border-primary/20"
+                          >
+                            <Settings size={16} />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">

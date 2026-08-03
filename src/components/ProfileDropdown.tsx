@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Settings, Shield, Headset, LogOut, ChevronDown, Mail, MessageCircle } from 'lucide-react';
+import { User, Settings, Shield, Headset, LogOut, ChevronDown, Mail, MessageCircle, Zap } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface ProfileDropdownProps {
@@ -67,6 +67,15 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile, isAdmi
               >
                 <User size={18} className="text-primary" />
                 <span>Perfil</span>
+              </Link>
+
+              <Link 
+                to="/ambassadors" 
+                onClick={closeMenu}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                <Zap size={18} className="text-amber-500" />
+                <span>Embajadores</span>
               </Link>
               
               <Link 

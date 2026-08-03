@@ -6,6 +6,7 @@ import { Users, Shield, Plus, Crown, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 import toast from 'react-hot-toast';
 import { cn } from '../lib/utils';
+import ClansPerformanceChart from '../components/ClansPerformanceChart';
 
 const ClansPage: React.FC = () => {
   const { user, profile } = useAuth();
@@ -170,6 +171,11 @@ const ClansPage: React.FC = () => {
                   <button type="submit" className="bg-primary text-black font-bold px-6 py-2 rounded-xl">Crear</button>
               </div>
           </motion.form>
+      )}
+
+      {/* Visual analytics chart for clans participation & success rate */}
+      {!loading && clans.length > 0 && (
+          <ClansPerformanceChart clans={clans} />
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

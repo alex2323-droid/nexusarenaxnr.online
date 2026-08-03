@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import NotificationsBell from './NotificationsBell';
 import ThemeToggle from './ThemeToggle';
+import PerformanceToggle from './PerformanceToggle';
 import RealTimeNotifications from './RealTimeNotifications';
 import ProfileDropdown from './ProfileDropdown';
 
@@ -40,12 +41,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <Link 
         to={to} 
         className={cn(
-          "flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all hover:text-primary",
+          "flex items-center gap-1.5 px-2.5 py-1.5 text-xs lg:text-sm font-semibold transition-all hover:text-primary",
           className
         )}
         onClick={() => setIsMenuOpen(false)}
       >
-        <Icon size={18} />
+        <Icon size={15} />
         <span>{label}</span>
       </Link>
     </motion.div>
@@ -133,11 +134,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-1.5 lg:gap-2.5">
             <ThemeToggle />
+            <PerformanceToggle />
             <NavLink to="/" icon={Trophy}>Torneos</NavLink>
             <NavLink to="/leagues" icon={Swords}>Ligas</NavLink>
             <NavLink to="/clans" icon={Users}>Clanes</NavLink>
+            <NavLink to="/ambassadors" icon={Zap}>Embajadores</NavLink>
             <NavLink to="/live" icon={Radio} className="text-red-500 animate-pulse font-bold">LIVE</NavLink>
             <NavLink to="/leaderboard" icon={Shield}>Clasificación</NavLink>
             {user ? (
@@ -162,6 +165,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {/* Mobile Nav Actions (Top) */}
           <div className="flex items-center gap-2 md:hidden">
             <ThemeToggle />
+            <PerformanceToggle />
             {user && <NotificationsBell />}
             {user && (
               <ProfileDropdown user={user} profile={profile} isAdmin={isAdmin} handleLogout={handleLogout} />
@@ -191,30 +195,32 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#09090b]/90 backdrop-blur-md border-t border-zinc-800 pb-safe">
-        <div className="flex items-center justify-around h-16 px-2">
-          <Link to="/" className={cn("flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors", location.pathname === '/' ? "text-primary" : "text-zinc-500 hover:text-zinc-300")}>
-            <Trophy size={20} />
-            <span className="text-[10px] font-medium">Torneos</span>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#09090b]/95 backdrop-blur-md border-t border-zinc-800 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center justify-around h-14 px-1">
+          <Link to="/" className={cn("flex flex-col items-center justify-center w-full h-full space-y-0.5 transition-colors", location.pathname === '/' ? "text-primary" : "text-zinc-500 hover:text-zinc-300")}>
+            <Trophy size={16} />
+            <span className="text-[8px] font-black uppercase tracking-tight">Torneos</span>
           </Link>
-          <Link to="/leagues" className={cn("flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors", location.pathname === '/leagues' ? "text-primary" : "text-zinc-500 hover:text-zinc-300")}>
-            <Swords size={20} />
-            <span className="text-[10px] font-medium">Ligas</span>
+          <Link to="/leagues" className={cn("flex flex-col items-center justify-center w-full h-full space-y-0.5 transition-colors", location.pathname === '/leagues' || location.pathname.startsWith('/league/') ? "text-primary" : "text-zinc-500 hover:text-zinc-300")}>
+            <Swords size={16} />
+            <span className="text-[8px] font-black uppercase tracking-tight">Ligas</span>
           </Link>
-          <Link to="/live" className={cn("flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors", location.pathname === '/live' ? "text-red-500 font-bold" : "text-zinc-500 hover:text-red-400")}>
-            <Radio size={20} className={location.pathname === '/live' ? "animate-pulse" : ""} />
-            <span className="text-[10px] font-medium">LIVE</span>
+          <Link to="/clans" className={cn("flex flex-col items-center justify-center w-full h-full space-y-0.5 transition-colors", location.pathname === '/clans' ? "text-primary" : "text-zinc-500 hover:text-zinc-300")}>
+            <Users size={16} />
+            <span className="text-[8px] font-black uppercase tracking-tight">Clanes</span>
           </Link>
-          <Link to="/leaderboard" className={cn("flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors", location.pathname === '/leaderboard' ? "text-primary" : "text-zinc-500 hover:text-zinc-300")}>
-            <Shield size={20} />
-            <span className="text-[10px] font-medium">Clasif</span>
+          <Link to="/ambassadors" className={cn("flex flex-col items-center justify-center w-full h-full space-y-0.5 transition-colors", location.pathname === '/ambassadors' ? "text-amber-500" : "text-zinc-500 hover:text-amber-400")}>
+            <Zap size={16} className={location.pathname === '/ambassadors' ? "fill-current animate-pulse" : ""} />
+            <span className="text-[8px] font-black uppercase tracking-tight">Embajadores</span>
           </Link>
-          {isAdmin && (
-            <Link to="/forum" className={cn("flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors", location.pathname === '/forum' ? "text-primary" : "text-zinc-500 hover:text-zinc-300")}>
-              <MessageSquare size={20} />
-              <span className="text-[10px] font-medium">Foro</span>
-            </Link>
-          )}
+          <Link to="/live" className={cn("flex flex-col items-center justify-center w-full h-full space-y-0.5 transition-colors", location.pathname === '/live' ? "text-red-500 font-bold" : "text-zinc-500 hover:text-red-400")}>
+            <Radio size={16} className={location.pathname === '/live' ? "animate-pulse" : ""} />
+            <span className="text-[8px] font-black uppercase tracking-tight">LIVE</span>
+          </Link>
+          <Link to="/leaderboard" className={cn("flex flex-col items-center justify-center w-full h-full space-y-0.5 transition-colors", location.pathname === '/leaderboard' ? "text-primary" : "text-zinc-500 hover:text-zinc-300")}>
+            <Shield size={16} />
+            <span className="text-[8px] font-black uppercase tracking-tight">Clasif</span>
+          </Link>
         </div>
       </div>
 
