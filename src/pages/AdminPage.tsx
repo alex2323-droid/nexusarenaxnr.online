@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { tournamentService, userService, bracketService } from '../services/db';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, limit, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, getDoc, addDoc, serverTimestamp, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import axios from 'axios';
 import { Trophy, Plus, Minus, Settings, Trash2, Check, Users, Clock, CreditCard, Eye, History, X, AlertTriangle, Workflow, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -78,13 +78,47 @@ const AdminPage: React.FC = () => {
   const [placementPosition, setPlacementPosition] = useState<{[key: string]: number}>({});
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
   const [showLeagueForm, setShowLeagueForm] = useState(false);
+  const [leagues, setLeagues] = useState<any[]>([]);
+  const [editingLeagueId, setEditingLeagueId] = useState<string | null>(null);
   const [leagueForm, setLeagueForm] = useState({
     name: '',
     game: '',
     prize: '',
     maxClans: 16,
-    platform: 'Mobile'
+    platform: 'Mobile',
+    startDate: '',
+    rules: '',
+    bannerImage: '',
+    status: 'open'
   });
+
+  const handleLeagueBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 800 * 1024) {
+      showToast('La imagen es demasiado grande. Máximo 800KB para optimizar carga.', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLeagueForm(prev => ({ ...prev, bannerImage: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      const q = query(collection(db, 'leagues'), orderBy('createdAt', 'desc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setLeagues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, (error) => {
+        console.error("Error listening to leagues: ", error);
+      });
+      return unsubscribe;
+    }
+  }, [isAdmin]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -1945,45 +1979,62 @@ const AdminPage: React.FC = () => {
 
       {/* Leagues Tab */}
       {activeTab === 'leagues' && (
-          <div className="glass p-8 rounded-3xl border border-primary/20 space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="glass p-8 rounded-3xl border border-primary/20 space-y-8">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-6">
                   <div>
                       <h2 className="text-2xl font-display uppercase italic text-white tracking-tight">Gestión de Ligas de Clanes</h2>
-                      <p className="text-gray-400 text-sm">Crea una nueva liga para enfrentar a los mejores clanes de la plataforma.</p>
+                      <p className="text-gray-400 text-sm">Crea y administra competiciones entre clanes con puntuaciones para el ranking global.</p>
                   </div>
                   <button 
-                      onClick={() => setShowLeagueForm(!showLeagueForm)}
+                      onClick={() => {
+                          if (editingLeagueId) {
+                              setEditingLeagueId(null);
+                              setLeagueForm({ name: '', game: '', prize: '', maxClans: 16, platform: 'Mobile', startDate: '', rules: '', bannerImage: '', status: 'open' });
+                          }
+                          setShowLeagueForm(!showLeagueForm);
+                      }}
                       className="bg-primary text-black font-bold uppercase italic px-6 py-3 rounded-xl hover:bg-white transition-colors flex items-center gap-2"
                   >
-                      {showLeagueForm ? <><Minus size={18} /> Cancelar</> : <><Plus size={18} /> Crear Nueva Liga</>}
+                      {showLeagueForm || editingLeagueId ? <><Minus size={18} /> Cancelar</> : <><Plus size={18} /> Crear Nueva Liga</>}
                   </button>
               </div>
 
-              {showLeagueForm && (
+              {(showLeagueForm || editingLeagueId) && (
                   <motion.form 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
                       onSubmit={async (e) => {
                           e.preventDefault();
                           try {
-                              await addDoc(collection(db, 'leagues'), {
-                                  ...leagueForm,
-                                  status: 'open',
-                                  registeredClans: [],
-                                  createdAt: serverTimestamp()
-                              });
-                              showToast('Liga creada exitosamente');
+                              if (editingLeagueId) {
+                                  await updateDoc(doc(db, 'leagues', editingLeagueId), {
+                                      ...leagueForm,
+                                      updatedAt: serverTimestamp()
+                                  });
+                                  showToast('Liga actualizada exitosamente');
+                                  setEditingLeagueId(null);
+                              } else {
+                                  await addDoc(collection(db, 'leagues'), {
+                                      ...leagueForm,
+                                      registeredClans: [],
+                                      createdAt: serverTimestamp()
+                                  });
+                                  showToast('Liga creada exitosamente');
+                              }
                               setShowLeagueForm(false);
-                              setLeagueForm({ name: '', game: '', prize: '', maxClans: 16, platform: 'Mobile' });
+                              setLeagueForm({ name: '', game: '', prize: '', maxClans: 16, platform: 'Mobile', startDate: '', rules: '', bannerImage: '', status: 'open' });
                           } catch (err) {
-                              showToast('Error al crear liga', 'error');
+                              showToast(editingLeagueId ? 'Error al actualizar liga' : 'Error al crear liga', 'error');
                           }
                       }}
-                      className="bg-white/5 border border-white/10 p-6 rounded-2xl space-y-4"
+                      className="bg-white/5 border border-white/10 p-6 rounded-2xl space-y-6"
                   >
+                      <h3 className="text-lg font-display uppercase italic text-primary">
+                          {editingLeagueId ? 'Editar Parámetros de la Liga' : 'Configuración de la Nueva Liga'}
+                      </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Nombre de la Liga</label>
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Nombre de la Liga</label>
                               <input 
                                   type="text" 
                                   required
@@ -1994,7 +2045,7 @@ const AdminPage: React.FC = () => {
                               />
                           </div>
                           <div className="space-y-2">
-                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Juego</label>
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Juego</label>
                               <input 
                                   type="text" 
                                   required
@@ -2005,7 +2056,7 @@ const AdminPage: React.FC = () => {
                               />
                           </div>
                           <div className="space-y-2">
-                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Premio</label>
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Premio</label>
                               <input 
                                   type="text" 
                                   required
@@ -2016,7 +2067,7 @@ const AdminPage: React.FC = () => {
                               />
                           </div>
                           <div className="space-y-2">
-                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Plataforma</label>
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Plataforma</label>
                               <select 
                                   className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
                                   value={leagueForm.platform}
@@ -2029,7 +2080,7 @@ const AdminPage: React.FC = () => {
                               </select>
                           </div>
                           <div className="space-y-2">
-                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Máximo de Clanes</label>
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Máximo de Clanes</label>
                               <input 
                                   type="number" 
                                   required
@@ -2039,17 +2090,197 @@ const AdminPage: React.FC = () => {
                                   onChange={e => setLeagueForm({...leagueForm, maxClans: parseInt(e.target.value) || 16})}
                               />
                           </div>
+                          <div className="space-y-2">
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Fecha de Inicio</label>
+                              <input 
+                                  type="date" 
+                                  required
+                                  className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
+                                  value={leagueForm.startDate}
+                                  onChange={e => setLeagueForm({...leagueForm, startDate: e.target.value})}
+                              />
+                          </div>
+                          <div className="space-y-2 col-span-full">
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Estado de la Liga</label>
+                              <select 
+                                  className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
+                                  value={leagueForm.status}
+                                  onChange={e => setLeagueForm({...leagueForm, status: e.target.value})}
+                              >
+                                  <option value="open" className="bg-zinc-900">Inscripciones Abiertas</option>
+                                  <option value="in_progress" className="bg-zinc-900">En Curso</option>
+                                  <option value="finished" className="bg-zinc-900">Finalizada</option>
+                              </select>
+                          </div>
+                          <div className="space-y-2 col-span-full">
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Reglas y Detalles</label>
+                              <textarea 
+                                  rows={4}
+                                  required
+                                  placeholder="Describe las reglas, estructura de puntos y formato de la liga..."
+                                  className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary resize-none"
+                                  value={leagueForm.rules}
+                                  onChange={e => setLeagueForm({...leagueForm, rules: e.target.value})}
+                              />
+                          </div>
+                          <div className="space-y-2 col-span-full">
+                              <label className="text-[10px] uppercase font-bold text-gray-400 px-1">Banner de la Liga (Opcional)</label>
+                              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                                  {leagueForm.bannerImage && (
+                                      <img src={leagueForm.bannerImage} className="w-32 h-20 object-cover rounded-xl border border-white/10" alt="Vista previa banner" />
+                                  )}
+                                  <input 
+                                      type="file" 
+                                      accept="image/*"
+                                      onChange={handleLeagueBannerUpload}
+                                      className="hidden"
+                                      id="league-banner-upload"
+                                  />
+                                  <label 
+                                      htmlFor="league-banner-upload"
+                                      className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-white/10 rounded-2xl bg-white/5 hover:bg-white/10 hover:border-primary/50 transition-all cursor-pointer group flex-1"
+                                  >
+                                      <Plus className="w-6 h-6 text-gray-500 group-hover:text-primary transition-colors mb-1" />
+                                      <span className="text-xs text-gray-400 group-hover:text-white transition-colors">
+                                          {leagueForm.bannerImage ? 'Reemplazar Banner' : 'Cargar Banner de la Liga'}
+                                      </span>
+                                  </label>
+                              </div>
+                          </div>
                       </div>
-                      <div className="flex justify-end pt-2">
+                      <div className="flex justify-end gap-3 pt-2">
+                          {editingLeagueId && (
+                              <button 
+                                  type="button"
+                                  onClick={() => {
+                                      setEditingLeagueId(null);
+                                      setLeagueForm({ name: '', game: '', prize: '', maxClans: 16, platform: 'Mobile', startDate: '', rules: '', bannerImage: '', status: 'open' });
+                                  }}
+                                  className="bg-white/10 text-white px-6 py-3 rounded-xl font-display uppercase italic font-bold hover:bg-white/20 transition-colors"
+                              >
+                                  Cancelar
+                              </button>
+                          )}
                           <button 
                               type="submit"
                               className="bg-primary text-black px-8 py-3 rounded-xl font-display uppercase italic font-bold hover:bg-white transition-colors"
                           >
-                              Publicar Liga
+                              {editingLeagueId ? 'Guardar Cambios' : 'Publicar Liga'}
                           </button>
                       </div>
                   </motion.form>
               )}
+
+              {/* Leagues List for Management */}
+              <div className="space-y-4">
+                  <h3 className="text-xl font-display uppercase italic text-white">Ligas Activas y Programadas</h3>
+                  {leagues.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500 border border-dashed border-white/10 rounded-2xl">
+                          No se han creado ligas todavía. Presiona "Crear Nueva Liga" arriba para empezar.
+                      </div>
+                  ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {leagues.map((lg) => (
+                              <div key={lg.id} className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col justify-between hover:border-white/20 transition-all relative overflow-hidden group">
+                                  {lg.bannerImage && (
+                                      <div className="absolute inset-0 bg-cover bg-center opacity-10 -z-10 group-hover:opacity-15 transition-opacity" style={{ backgroundImage: `url(${lg.bannerImage})` }} />
+                                  )}
+                                  <div className="space-y-3">
+                                      <div className="flex justify-between items-start gap-2">
+                                          <div>
+                                              <span className={cn(
+                                                  "text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border",
+                                                  lg.status === 'open' ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                                                  lg.status === 'in_progress' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                                                  "bg-gray-500/10 text-gray-400 border-gray-500/20"
+                                              )}>
+                                                  {lg.status === 'open' ? 'Inscripciones Abiertas' : lg.status === 'in_progress' ? 'En Curso' : 'Finalizada'}
+                                              </span>
+                                              <h4 className="text-xl font-display uppercase italic text-white mt-1.5">{lg.name}</h4>
+                                              <p className="text-xs text-gray-400 font-bold">{lg.game} • {lg.platform}</p>
+                                          </div>
+                                          <div className="flex gap-2">
+                                              <button 
+                                                  title="Editar Liga"
+                                                  onClick={() => {
+                                                      setEditingLeagueId(lg.id);
+                                                      setLeagueForm({
+                                                          name: lg.name || '',
+                                                          game: lg.game || '',
+                                                          prize: lg.prize || '',
+                                                          maxClans: lg.maxClans || 16,
+                                                          platform: lg.platform || 'Mobile',
+                                                          startDate: lg.startDate || '',
+                                                          rules: lg.rules || '',
+                                                          bannerImage: lg.bannerImage || '',
+                                                          status: lg.status || 'open'
+                                                      });
+                                                      setShowLeagueForm(false);
+                                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                  }}
+                                                  className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white p-2 rounded-lg border border-white/5 transition-all"
+                                              >
+                                                  <Settings size={16} />
+                                              </button>
+                                              <button 
+                                                  title="Eliminar Liga"
+                                                  onClick={async () => {
+                                                      if (confirm(`¿Estás seguro de que deseas eliminar permanentemente la liga "${lg.name}"? Esta acción borrará todas sus inscripciones.`)) {
+                                                          try {
+                                                              await deleteDoc(doc(db, 'leagues', lg.id));
+                                                              showToast('Liga eliminada correctamente');
+                                                          } catch (err) {
+                                                              showToast('Error al eliminar la liga', 'error');
+                                                          }
+                                                      }
+                                                  }}
+                                                  className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 p-2 rounded-lg border border-red-500/10 transition-all"
+                                              >
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-2 text-center text-xs text-gray-300 py-2 border-t border-b border-white/5">
+                                          <div>
+                                              <p className="text-gray-500 text-[9px] uppercase font-bold">Inscritos</p>
+                                              <p className="font-mono font-bold text-white mt-0.5">
+                                                  {lg.registeredClans?.length || 0} / {lg.maxClans || 16} Clanes
+                                              </p>
+                                          </div>
+                                          <div>
+                                              <p className="text-gray-500 text-[9px] uppercase font-bold">Premio</p>
+                                              <p className="font-bold text-yellow-400 mt-0.5">
+                                                  {lg.prize}
+                                              </p>
+                                          </div>
+                                      </div>
+
+                                      <div className="flex justify-between items-center text-xs text-gray-400">
+                                          <span>Inicio: <strong className="text-white">{lg.startDate || 'Sin definir'}</strong></span>
+                                          <button 
+                                              type="button"
+                                              onClick={async () => {
+                                                  const statuses = ['open', 'in_progress', 'finished'];
+                                                  const nextStatus = statuses[(statuses.indexOf(lg.status || 'open') + 1) % statuses.length];
+                                                  try {
+                                                      await updateDoc(doc(db, 'leagues', lg.id), { status: nextStatus });
+                                                      showToast(`Estado cambiado a: ${nextStatus === 'open' ? 'Inscripciones Abiertas' : nextStatus === 'in_progress' ? 'En Curso' : 'Finalizada'}`);
+                                                  } catch (err) {
+                                                      showToast('Error al cambiar estado', 'error');
+                                                  }
+                                              }}
+                                              className="text-primary hover:underline font-bold text-[10px] uppercase tracking-widest flex items-center gap-1 bg-primary/10 px-2 py-1 rounded border border-primary/20"
+                                          >
+                                              Cambiar Estado
+                                          </button>
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
           </div>
       )}
 

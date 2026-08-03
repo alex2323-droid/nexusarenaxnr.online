@@ -18,8 +18,14 @@ const LeaderboardChart: React.FC<LeaderboardChartProps> = ({ users }) => {
     // Generate 10 time steps (weeks/months)
     const timeSteps = 10;
     
+    interface ChartPlayerData {
+      id: string;
+      name: string;
+      history: { date: number, value: number }[];
+    }
+
     // Create random history logic
-    const data = topUsers.map((user, index) => {
+    const data: ChartPlayerData[] = topUsers.map((user, index) => {
       const finalPoints = user.stats?.points || 0;
       const history = [];
       let currentPoints = Math.round(finalPoints * 0.1); // Start with 10%
