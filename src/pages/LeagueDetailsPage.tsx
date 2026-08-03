@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Shield, 
@@ -30,13 +30,28 @@ const LeagueDetailsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showRegistration, setShowRegistration] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'bracket'>('info');
+  const [bracketSubTab, setBracketSubTab] = useState<'standings' | 'brackets'>('standings');
   const [matches, setMatches] = useState<any[]>([]);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   
   // Registration form
-  const [mainPlayers, setMainPlayers] = useState(['', '', '', '']);
-  const [subPlayers, setSubPlayers] = useState(['', '']);
+  const [mainPlayers, setMainPlayers] = useState([
+    { name: '', platform: 'Mobile' },
+    { name: '', platform: 'Mobile' },
+    { name: '', platform: 'Mobile' },
+    { name: '', platform: 'Mobile' }
+  ]);
+  const [subPlayers, setSubPlayers] = useState([
+    { name: '', platform: 'Mobile' },
+    { name: '', platform: 'Mobile' }
+  ]);
   const [platform, setPlatform] = useState('Mobile');
+
+  // Combined creation & registration state
+  const [registeringWithNewClan, setRegisteringWithNewClan] = useState(false);
+  const [newClanName, setNewClanName] = useState('');
+  const [newClanTag, setNewClanTag] = useState('');
+  const [newClanDescription, setNewClanDescription] = useState('');
 
   useEffect(() => {
     const fetchLeague = async () => {
@@ -66,37 +81,108 @@ const LeagueDetailsPage: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!user || !profile?.clanId) {
-          toast.error('Debes pertenecer a un clan para inscribirte.');
+      if (!user) {
+          toast.error('Debes iniciar sesión para inscribirte.');
           return;
       }
-      if (mainPlayers.some(p => !p)) {
+      
+      if (mainPlayers.some(p => !p.name.trim())) {
           toast.error('Debes especificar los 4 participantes titulares.');
           return;
       }
-      
-      const registrationData = {
-          clanId: profile.clanId,
-          clanName: profile.clanName,
-          clanTag: profile.clanTag,
-          mainPlayers,
-          subPlayers: subPlayers.filter(p => p),
-          platform,
-          registeredAt: new Date().toISOString()
-      };
+
+      let activeClanId = profile?.clanId;
+      let activeClanName = profile?.clanName;
+      let activeClanTag = profile?.clanTag;
+
+      const toastId = toast.loading('Procesando inscripción...');
       
       try {
+          // If they are registering while creating a new clan
+          if (registeringWithNewClan) {
+              if (!newClanName || !newClanTag) {
+                  toast.error('Nombre y Tag del clan son obligatorios.', { id: toastId });
+                  return;
+              }
+
+              // Create Clan exactly like in ClansPage.tsx
+              const clanDocRef = await addDoc(collection(db, 'clans'), {
+                name: newClanName,
+                tag: newClanTag.toUpperCase(),
+                description: newClanDescription,
+                leaderId: user.uid,
+                leaderName: profile?.displayName || profile?.username || user.displayName || 'Líder',
+                members: [{
+                   uid: user.uid,
+                   displayName: profile?.displayName || profile?.username || user.displayName || 'Jugador',
+                   role: 'Líder',
+                   joinedAt: new Date().toISOString()
+                }],
+                stats: { wins: 0, points: 0, tournamentsPlayed: 0 },
+                createdAt: serverTimestamp()
+              });
+
+              activeClanId = clanDocRef.id;
+              activeClanName = newClanName;
+              activeClanTag = newClanTag.toUpperCase();
+
+              // Update user's profile so they belong to this clan now
+              await updateDoc(doc(db, 'users', user.uid), {
+                clanId: activeClanId,
+                clanName: activeClanName,
+                clanTag: activeClanTag
+              });
+          }
+
+          if (!activeClanId) {
+              toast.error('Debes pertenecer a un clan para inscribirte o activar la creación conjunta.', { id: toastId });
+              return;
+          }
+          
+          const registrationData = {
+              clanId: activeClanId,
+              clanName: activeClanName,
+              clanTag: activeClanTag,
+              mainPlayers,
+              subPlayers: subPlayers.filter(p => p.name.trim()),
+              platform,
+              registeredAt: new Date().toISOString()
+          };
+          
+          // Register in league
           await updateDoc(doc(db, 'leagues', id!), {
               registeredClans: arrayUnion(registrationData)
           });
-          toast.success('¡Clan inscrito exitosamente en la liga!');
+          
+          toast.success(
+              registeringWithNewClan 
+                ? '¡Clan creado e inscrito exitosamente en la liga!' 
+                : '¡Clan inscrito exitosamente en la liga!',
+              { id: toastId }
+          );
+          
           setShowRegistration(false);
+          setRegisteringWithNewClan(false);
+          setNewClanName('');
+          setNewClanTag('');
+          setNewClanDescription('');
+          setMainPlayers([
+            { name: '', platform: 'Mobile' },
+            { name: '', platform: 'Mobile' },
+            { name: '', platform: 'Mobile' },
+            { name: '', platform: 'Mobile' }
+          ]);
+          setSubPlayers([
+            { name: '', platform: 'Mobile' },
+            { name: '', platform: 'Mobile' }
+          ]);
+          
           // Refresh
           const docSnap = await getDoc(doc(db, 'leagues', id!));
           if (docSnap.exists()) setLeague({ id: docSnap.id, ...docSnap.data() });
       } catch (err) {
           console.error(err);
-          toast.error('Error al inscribir el clan.');
+          toast.error('Error al procesar la inscripción.', { id: toastId });
       }
   };
 
@@ -424,6 +510,243 @@ const LeagueDetailsPage: React.FC = () => {
     );
   };
 
+  const getLeagueStandings = () => {
+    if (!league || !league.registeredClans) return [];
+
+    const standings = league.registeredClans.map((clan: any) => {
+      let matchesPlayed = 0;
+      let wins = 0;
+      let losses = 0;
+      let roundsWon = 0;
+      let roundsLost = 0;
+      let maxRoundReached = -1;
+      let eliminated = false;
+
+      // Scan matches
+      matches.forEach((m: any) => {
+        const isP1 = m.player1Id === clan.clanId;
+        const isP2 = m.player2Id === clan.clanId;
+
+        if (isP1 || isP2) {
+          if (m.status === 'completed') {
+            matchesPlayed++;
+            if (isP1) {
+              roundsWon += Number(m.score1 || 0);
+              roundsLost += Number(m.score2 || 0);
+              if (m.winnerId === clan.clanId) {
+                wins++;
+              } else {
+                losses++;
+                eliminated = true;
+              }
+            } else {
+              roundsWon += Number(m.score2 || 0);
+              roundsLost += Number(m.score1 || 0);
+              if (m.winnerId === clan.clanId) {
+                wins++;
+              } else {
+                losses++;
+                eliminated = true;
+              }
+            }
+            maxRoundReached = Math.max(maxRoundReached, m.round);
+          } else if (m.status === 'bye') {
+            wins++;
+            maxRoundReached = Math.max(maxRoundReached, m.round);
+          }
+        }
+      });
+
+      // Calculate points based on max round reached matching the points configuration
+      let points = 5; // Base participation points
+      let statusLabel = "Inscrito";
+      let statusColor = "text-green-500 border-green-500/20 bg-green-500/5";
+
+      if (matches.length > 0) {
+        // Find total rounds
+        const totalRounds = [...new Set(matches.map((m: any) => m.round as number))].length;
+        
+        const isWinnerOfFinal = matches.some((m: any) => m.round === totalRounds - 1 && m.status === 'completed' && m.winnerId === clan.clanId);
+        const lostInFinal = matches.some((m: any) => m.round === totalRounds - 1 && m.status === 'completed' && m.winnerId !== clan.clanId && (m.player1Id === clan.clanId || m.player2Id === clan.clanId));
+        const lostInSemis = matches.some((m: any) => m.round === totalRounds - 2 && m.status === 'completed' && m.winnerId !== clan.clanId && (m.player1Id === clan.clanId || m.player2Id === clan.clanId)) && totalRounds > 1;
+        const lostInCuartos = matches.some((m: any) => m.round === totalRounds - 3 && m.status === 'completed' && m.winnerId !== clan.clanId && (m.player1Id === clan.clanId || m.player2Id === clan.clanId)) && totalRounds > 2;
+        const lostInOctavos = matches.some((m: any) => m.round === totalRounds - 4 && m.status === 'completed' && m.winnerId !== clan.clanId && (m.player1Id === clan.clanId || m.player2Id === clan.clanId)) && totalRounds > 3;
+
+        if (isWinnerOfFinal) {
+          points = 500;
+          statusLabel = "Campeón 🏆";
+          statusColor = "text-primary border-primary/30 bg-primary/10 font-bold";
+        } else if (lostInFinal) {
+          points = 250;
+          statusLabel = "Subcampeón 🥈";
+          statusColor = "text-gray-300 border-gray-400/30 bg-gray-400/10 font-bold";
+        } else if (lostInSemis) {
+          points = 100;
+          statusLabel = "Semifinalista";
+          statusColor = "text-amber-500 border-amber-500/20 bg-amber-500/5";
+        } else if (lostInCuartos) {
+          points = 50;
+          statusLabel = "Cuartos de Final";
+          statusColor = "text-blue-400 border-blue-400/20 bg-blue-400/5";
+        } else if (lostInOctavos) {
+          points = 25;
+          statusLabel = "Octavos de Final";
+          statusColor = "text-purple-400 border-purple-400/20 bg-purple-400/5";
+        } else if (!eliminated && league.status === 'in_progress') {
+          statusLabel = "En Juego ⚔️";
+          statusColor = "text-yellow-500 border-yellow-500/20 bg-yellow-500/5 animate-pulse font-bold";
+        } else {
+          statusLabel = "Eliminado";
+          statusColor = "text-red-500 border-red-500/20 bg-red-500/5";
+        }
+      } else {
+        statusLabel = "Inscrito";
+        statusColor = "text-green-500 border-green-500/20 bg-green-500/5";
+      }
+
+      return {
+        clanId: clan.clanId,
+        clanName: clan.clanName,
+        clanTag: clan.clanTag,
+        platform: clan.platform,
+        matchesPlayed,
+        wins,
+        losses,
+        roundsWon,
+        roundsLost,
+        roundDiff: roundsWon - roundsLost,
+        points,
+        statusLabel,
+        statusColor,
+        eliminated
+      };
+    });
+
+    // Sort standings:
+    // 1st: Points (descending)
+    // 2nd: Wins (descending)
+    // 3rd: Round Diff (descending)
+    // 4th: Clan Name (ascending)
+    return standings.sort((a: any, b: any) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (b.roundDiff !== a.roundDiff) return b.roundDiff - a.roundDiff;
+      return a.clanName.localeCompare(b.clanName);
+    });
+  };
+
+  const renderLeagueStandingsTable = () => {
+    const standings = getLeagueStandings();
+
+    if (!standings || standings.length === 0) {
+      return (
+        <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
+          <Trophy size={48} className="mx-auto text-gray-700 mb-4 animate-pulse" />
+          <p className="text-gray-500 uppercase tracking-widest text-sm font-bold">No hay datos de clasificación aún</p>
+          <p className="text-xs text-gray-600 mt-2 uppercase">Inscribe clanes e inicia el torneo para ver la tabla de posiciones.</p>
+        </div>
+      );
+    }
+
+    // Top 3 spotlight cards
+    const podiumClans = standings.slice(0, 3);
+
+    return (
+      <div className="space-y-8">
+        {/* Podium cards */}
+        {podiumClans.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {podiumClans.map((clan: any, idx: number) => {
+              const placeColors = [
+                { border: 'border-yellow-500/40 bg-yellow-500/5', text: 'text-yellow-400', badge: '🥇 1er Lugar' },
+                { border: 'border-slate-400/40 bg-slate-400/5', text: 'text-slate-300', badge: '🥈 2do Lugar' },
+                { border: 'border-amber-700/40 bg-amber-700/5', text: 'text-amber-600', badge: '🥉 3er Lugar' }
+              ];
+              const style = placeColors[idx] || { border: 'border-white/5 bg-white/5', text: 'text-white', badge: `${idx + 1}º Lugar` };
+
+              return (
+                <div key={clan.clanId} className={cn("border-2 rounded-2xl p-4 flex items-center justify-between relative overflow-hidden", style.border)}>
+                  <div className="space-y-1">
+                    <span className={cn("text-[9px] font-black uppercase tracking-widest", style.text)}>{style.badge}</span>
+                    <h4 className="text-lg font-display uppercase font-bold truncate max-w-[150px]">
+                      {clan.clanName}
+                    </h4>
+                    <p className="text-xs text-gray-400 font-bold font-mono">[{clan.clanTag}] • {clan.points} PTS</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-display font-black italic text-primary">{clan.wins} - {clan.losses}</div>
+                    <div className="text-[8px] text-gray-500 font-bold uppercase tracking-wider">Victorias / Derrotas</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Responsive Table */}
+        <div className="overflow-x-auto border border-white/10 rounded-2xl bg-zinc-950/20">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-white/5 border-b border-white/10 text-gray-400 uppercase tracking-wider text-[10px] font-black font-mono">
+                <th className="py-4 px-4 text-center w-12">#</th>
+                <th className="py-4 px-4">Clan</th>
+                <th className="py-4 px-4 text-center">PJ</th>
+                <th className="py-4 px-4 text-center">PG</th>
+                <th className="py-4 px-4 text-center">PP</th>
+                <th className="py-4 px-4 text-center font-mono">R. Fav</th>
+                <th className="py-4 px-4 text-center font-mono">R. Con</th>
+                <th className="py-4 px-4 text-center">DF</th>
+                <th className="py-4 px-4 text-center">Puntos</th>
+                <th className="py-4 px-4 text-right pr-6">Estado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {standings.map((clan: any, idx: number) => {
+                return (
+                  <tr key={clan.clanId} className="hover:bg-white/5 transition-colors text-sm">
+                    <td className="py-4 px-4 text-center font-display font-black">
+                      {idx + 1 === 1 ? <span className="text-yellow-400">🥇</span> :
+                       idx + 1 === 2 ? <span className="text-slate-300">🥈</span> :
+                       idx + 1 === 3 ? <span className="text-amber-600">🥉</span> :
+                       <span className="text-gray-500">{idx + 1}</span>}
+                    </td>
+                    <td className="py-4 px-4 font-bold">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono bg-white/5 text-primary px-1.5 py-0.5 rounded">
+                          [{clan.clanTag}]
+                        </span>
+                        <span className="truncate max-w-[120px] sm:max-w-[180px]" title={clan.clanName}>
+                          {clan.clanName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-center font-mono font-bold text-gray-400">{clan.matchesPlayed}</td>
+                    <td className="py-4 px-4 text-center font-mono font-bold text-green-500">{clan.wins}</td>
+                    <td className="py-4 px-4 text-center font-mono font-bold text-red-500">{clan.losses}</td>
+                    <td className="py-4 px-4 text-center font-mono text-gray-400 text-xs">{clan.roundsWon}</td>
+                    <td className="py-4 px-4 text-center font-mono text-gray-400 text-xs">{clan.roundsLost}</td>
+                    <td className={cn(
+                      "py-4 px-4 text-center font-mono text-xs font-bold",
+                      clan.roundDiff > 0 ? "text-green-500" : clan.roundDiff < 0 ? "text-red-500" : "text-gray-500"
+                    )}>
+                      {clan.roundDiff > 0 ? `+${clan.roundDiff}` : clan.roundDiff}
+                    </td>
+                    <td className="py-4 px-4 text-center font-display font-black italic text-primary text-base">{clan.points}</td>
+                    <td className="py-4 px-4 text-right pr-6">
+                      <span className={cn("text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border", clan.statusColor)}>
+                        {clan.statusLabel}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center">Cargando...</div>;
   if (!league) return <div className="min-h-[60vh] flex items-center justify-center">Liga no encontrada.</div>;
 
@@ -562,26 +885,72 @@ const LeagueDetailsPage: React.FC = () => {
                      </p>
                  </div>
 
-                 <div className="glass p-6 rounded-3xl border border-white/10 overflow-x-auto">
+                 <div className="glass p-6 rounded-3xl border border-white/10">
                      <h2 className="text-2xl font-display uppercase text-primary mb-6">Clanes Inscritos</h2>
                      {league.registeredClans && league.registeredClans.length > 0 ? (
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             {league.registeredClans.map((clan: any, idx: number) => (
-                                 <div key={idx} className="bg-white/5 border border-white/10 p-4 rounded-xl flex justify-between items-center">
-                                     <div>
-                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">[{clan.clanTag}]</span>
-                                            <span className="font-bold">{clan.clanName}</span>
-                                         </div>
-                                         <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest flex items-center gap-2">
-                                            <span>4 Titulares</span>
-                                            <span>•</span>
-                                            <span>{clan.subPlayers?.length || 0} Suplentes</span>
-                                         </div>
-                                     </div>
-                                     {clan.platform === 'Mobile' ? <Smartphone size={18} className="text-gray-400" /> : <Monitor size={18} className="text-gray-400" />}
-                                 </div>
-                             ))}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             {league.registeredClans.map((clan: any, idx: number) => {
+                                 const normalizedMain = (clan.mainPlayers || []).map((p: any) => 
+                                     typeof p === 'string' ? { name: p, platform: clan.platform || 'Mobile' } : p
+                                  );
+                                  const normalizedSubs = (clan.subPlayers || []).map((p: any) => 
+                                      typeof p === 'string' ? { name: p, platform: clan.platform || 'Mobile' } : p
+                                  );
+
+                                  return (
+                                      <div key={idx} className="bg-white/5 border border-white/10 p-5 rounded-2xl flex flex-col justify-between gap-4">
+                                          <div>
+                                              <div className="flex items-center justify-between">
+                                                  <div className="flex items-center gap-2">
+                                                     <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">[{clan.clanTag}]</span>
+                                                     <span className="font-bold text-lg">{clan.clanName}</span>
+                                                  </div>
+                                                  <span className="text-[9px] font-mono bg-white/5 text-gray-400 px-2 py-1 rounded border border-white/5">
+                                                      {clan.platform || 'Híbrido'}
+                                                  </span>
+                                              </div>
+                                              
+                                              <div className="mt-4 space-y-3">
+                                                  <div className="text-[10px] text-primary/80 font-black uppercase tracking-wider font-mono">
+                                                      Titulares
+                                                  </div>
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                      {normalizedMain.map((p: any, pIdx: number) => (
+                                                          <div key={`m-${pIdx}`} className="bg-black/30 border border-white/5 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                                                              <span className="text-xs text-gray-300 truncate max-w-[100px]" title={p.name}>{p.name}</span>
+                                                              {p.platform === 'Mobile' ? (
+                                                                  <Smartphone size={12} className="text-gray-500 shrink-0" title="Mobile" />
+                                                              ) : (
+                                                                  <Monitor size={12} className="text-gray-500 shrink-0" title="PC" />
+                                                              )}
+                                                          </div>
+                                                      ))}
+                                                  </div>
+
+                                                  {normalizedSubs.length > 0 && (
+                                                      <>
+                                                          <div className="text-[10px] text-gray-500 font-black uppercase tracking-wider font-mono pt-1">
+                                                              Suplentes
+                                                          </div>
+                                                          <div className="grid grid-cols-2 gap-2">
+                                                              {normalizedSubs.map((p: any, pIdx: number) => (
+                                                                  <div key={`s-${pIdx}`} className="bg-black/30 border border-white/5 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                                                                      <span className="text-xs text-gray-400 truncate max-w-[100px]" title={p.name}>{p.name}</span>
+                                                                      {p.platform === 'Mobile' ? (
+                                                                          <Smartphone size={12} className="text-gray-500 shrink-0" title="Mobile" />
+                                                                      ) : (
+                                                                          <Monitor size={12} className="text-gray-500 shrink-0" title="PC" />
+                                                                      )}
+                                                                  </div>
+                                                              ))}
+                                                          </div>
+                                                      </>
+                                                  )}
+                                              </div>
+                                          </div>
+                                      </div>
+                                  );
+                              })}
                          </div>
                      ) : (
                          <div className="text-center py-10 text-gray-500">
@@ -591,118 +960,245 @@ const LeagueDetailsPage: React.FC = () => {
                  </div>
                </>
              ) : (
-               <div className="glass p-6 rounded-3xl border border-white/10 overflow-hidden">
-                 <div className="flex justify-between items-center mb-6">
-                   <h2 className="text-2xl font-display uppercase text-primary">Brackets de Eliminatoria</h2>
-                   {isAdmin && matches && matches.length > 0 && (
-                     <button 
-                       onClick={handleGenerateLeagueBracket}
-                       className="bg-primary/20 text-primary border border-primary/30 text-[10px] font-black uppercase py-2 px-4 rounded-xl hover:bg-primary hover:text-black transition-colors"
-                     >
-                       Regenerar Brackets
-                     </button>
-                   )}
-                 </div>
-                 {renderLeagueBracket()}
-               </div>
+                <div className="glass p-6 rounded-3xl border border-white/10 space-y-6 overflow-hidden">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
+                    <div className="space-y-1">
+                      <h2 className="text-2xl font-display uppercase text-primary tracking-tight">
+                        {bracketSubTab === 'standings' ? 'Tabla de Clasificación' : 'Árbol de Brackets'}
+                      </h2>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider font-mono">
+                        {bracketSubTab === 'standings' ? 'Ranking de rendimiento en tiempo real' : 'Brackets del torneo eliminatorio'}
+                      </p>
+                    </div>
+                    
+                    <div className="flex bg-black/50 p-1.5 rounded-xl border border-white/10 self-stretch sm:self-auto">
+                      <button
+                        onClick={() => setBracketSubTab('standings')}
+                        className={cn(
+                          "flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all",
+                          bracketSubTab === 'standings' ? "bg-primary text-black shadow-lg shadow-primary/15 font-bold" : "text-gray-400 hover:text-white"
+                        )}
+                      >
+                        Clasificación
+                      </button>
+                      <button
+                        onClick={() => setBracketSubTab('brackets')}
+                        className={cn(
+                          "flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all",
+                          bracketSubTab === 'brackets' ? "bg-primary text-black shadow-lg shadow-primary/15 font-bold" : "text-gray-400 hover:text-white"
+                        )}
+                      >
+                        Brackets
+                      </button>
+                    </div>
+                  </div>
+
+                  {bracketSubTab === 'standings' ? (
+                    renderLeagueStandingsTable()
+                  ) : (
+                    <div>
+                      {isAdmin && matches && matches.length > 0 && (
+                        <div className="flex justify-end mb-4">
+                          <button 
+                            onClick={handleGenerateLeagueBracket}
+                            className="bg-primary/20 text-primary border border-primary/30 text-[10px] font-black uppercase py-2 px-4 rounded-xl hover:bg-primary hover:text-black transition-colors"
+                          >
+                            Regenerar Brackets
+                          </button>
+                        </div>
+                      )}
+                      {renderLeagueBracket()}
+                    </div>
+                  )}
+                </div>
              )}
           </div>
           
           <div className="space-y-6">
-             <div className="glass p-6 rounded-3xl border border-white/10">
-                 <h2 className="text-xl font-display uppercase mb-4">Inscripción</h2>
-                 
-                 {!user ? (
-                     <div className="text-center py-6">
-                         <AlertCircle className="mx-auto text-amber-500 mb-2" size={32} />
-                         <p className="text-sm text-gray-400 mb-4">Debes iniciar sesión para inscribir a tu clan.</p>
-                         <Link to="/login" className="bg-primary text-black font-bold px-6 py-2 rounded-xl text-sm">Iniciar Sesión</Link>
-                     </div>
-                 ) : !profile?.clanId ? (
-                     <div className="text-center py-6">
-                         <Users className="mx-auto text-amber-500 mb-2" size={32} />
-                         <p className="text-sm text-gray-400 mb-4">Debes pertenecer a un clan para participar en Ligas.</p>
-                         <Link to="/clans" className="bg-primary text-black font-bold px-6 py-2 rounded-xl text-sm">Buscar o Crear Clan</Link>
-                     </div>
-                 ) : isClanRegistered ? (
-                     <div className="text-center py-6 border border-green-500/20 bg-green-500/5 rounded-2xl">
-                         <CheckCircle className="mx-auto text-green-500 mb-2" size={32} />
-                         <p className="text-green-400 font-bold">¡Tu clan ya está inscrito!</p>
-                     </div>
-                 ) : league.status !== 'open' || clanIsFull ? (
-                     <div className="text-center py-6">
-                         <AlertCircle className="mx-auto text-red-500 mb-2" size={32} />
-                         <p className="text-red-400 font-bold">Las inscripciones están cerradas o la liga está llena.</p>
-                     </div>
-                 ) : (
-                     <>
-                        {!showRegistration ? (
-                            <button 
-                                onClick={() => setShowRegistration(true)}
-                                className="w-full bg-primary text-black font-display font-bold uppercase italic py-4 rounded-xl skew-x-[-5deg] hover:bg-white transition-colors"
-                            >
-                                Inscribir a [{profile.clanTag}]
-                            </button>
-                        ) : (
-                            <form onSubmit={handleRegister} className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-gray-500">Plataforma</label>
-                                    <select 
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm font-bold"
-                                        value={platform}
-                                        onChange={e => setPlatform(e.target.value)}
-                                    >
-                                        <option value="Mobile">Mobile</option>
-                                        <option value="PC">PC</option>
-                                    </select>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-primary">Titulares (4 Requeridos)</label>
-                                    {mainPlayers.map((player, idx) => (
-                                        <input 
-                                            key={`main-${idx}`}
-                                            type="text"
-                                            placeholder={`Titular ${idx + 1} (Nickname/ID)`}
-                                            required
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm"
-                                            value={player}
-                                            onChange={e => {
-                                                const newPlayers = [...mainPlayers];
-                                                newPlayers[idx] = e.target.value;
-                                                setMainPlayers(newPlayers);
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                                
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-gray-500">Suplentes (Hasta 2 Opcionales)</label>
-                                    {subPlayers.map((player, idx) => (
-                                        <input 
-                                            key={`sub-${idx}`}
-                                            type="text"
-                                            placeholder={`Suplente ${idx + 1} (Opcional)`}
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm"
-                                            value={player}
-                                            onChange={e => {
-                                                const newPlayers = [...subPlayers];
-                                                newPlayers[idx] = e.target.value;
-                                                setSubPlayers(newPlayers);
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                                
-                                <div className="pt-4 flex gap-2">
-                                    <button type="button" onClick={() => setShowRegistration(false)} className="w-1/3 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20">Cancelar</button>
-                                    <button type="submit" className="w-2/3 bg-primary text-black font-display font-bold uppercase italic py-3 rounded-xl hover:bg-white transition-colors">Confirmar</button>
-                                </div>
-                            </form>
-                        )}
-                     </>
-                 )}
-             </div>
+              <div className="glass p-6 rounded-3xl border border-white/10">
+                  <h2 className="text-xl font-display uppercase mb-4">Inscripción</h2>
+                  
+                  {!user ? (
+                      <div className="text-center py-6">
+                          <AlertCircle className="mx-auto text-amber-500 mb-2" size={32} />
+                          <p className="text-sm text-gray-400 mb-4">Debes iniciar sesión para inscribir a tu clan.</p>
+                          <Link to="/login" className="bg-primary text-black font-bold px-6 py-2 rounded-xl text-sm">Iniciar Sesión</Link>
+                      </div>
+                  ) : isClanRegistered ? (
+                      <div className="text-center py-6 border border-green-500/20 bg-green-500/5 rounded-2xl">
+                          <CheckCircle className="mx-auto text-green-500 mb-2" size={32} />
+                          <p className="text-green-400 font-bold">¡Tu clan ya está inscrito!</p>
+                      </div>
+                  ) : league.status !== 'open' || clanIsFull ? (
+                      <div className="text-center py-6">
+                          <AlertCircle className="mx-auto text-red-500 mb-2" size={32} />
+                          <p className="text-red-400 font-bold">Las inscripciones están cerradas o la liga está llena.</p>
+                      </div>
+                  ) : (
+                      <>
+                         {!showRegistration ? (
+                             <div className="space-y-4">
+                                 {profile?.clanId ? (
+                                     <button 
+                                         onClick={() => {
+                                             setRegisteringWithNewClan(false);
+                                             setShowRegistration(true);
+                                         }}
+                                         className="w-full bg-primary text-black font-display font-bold uppercase italic py-4 rounded-xl skew-x-[-5deg] hover:bg-white transition-colors animate-pulse"
+                                     >
+                                         Inscribir a [{profile.clanTag}]
+                                     </button>
+                                 ) : (
+                                     <div className="space-y-3 text-center">
+                                         <Users className="mx-auto text-amber-500 mb-2" size={32} />
+                                         <p className="text-xs text-gray-400 mb-4">No tienes un clan registrado aún. ¡Puedes crear tu clan y registrar a tus participantes todo en un solo paso!</p>
+                                         <button 
+                                             onClick={() => {
+                                                 setRegisteringWithNewClan(true);
+                                                 setShowRegistration(true);
+                                             }}
+                                             className="w-full bg-primary text-black font-display font-bold uppercase italic py-3 rounded-xl hover:bg-white transition-colors"
+                                         >
+                                             Crear Clan e Inscribirse
+                                         </button>
+                                         <div className="text-[10px] text-gray-500">o si prefieres unirte a uno existente:</div>
+                                         <Link to="/clans" className="block text-primary hover:underline text-xs font-bold uppercase tracking-wider">
+                                             Ver Directorio de Clanes
+                                         </Link>
+                                     </div>
+                                 )}
+                             </div>
+                         ) : (
+                             <form onSubmit={handleRegister} className="space-y-4">
+                                 {registeringWithNewClan && (
+                                     <div className="space-y-3 p-4 bg-primary/5 border border-primary/25 rounded-2xl">
+                                         <span className="text-[10px] font-black text-primary uppercase tracking-wider block">Nuevo Clan</span>
+                                         <div className="space-y-2">
+                                             <input 
+                                                 type="text" 
+                                                 placeholder="Nombre de tu nuevo Clan"
+                                                 required
+                                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm"
+                                                 value={newClanName}
+                                                 onChange={e => setNewClanName(e.target.value)}
+                                             />
+                                             <input 
+                                                 type="text" 
+                                                 placeholder="Tag del Clan (Ej: VNZ, max 4 letras)"
+                                                 required
+                                                 maxLength={4}
+                                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm uppercase"
+                                                 value={newClanTag}
+                                                 onChange={e => setNewClanTag(e.target.value.toUpperCase())}
+                                             />
+                                             <textarea 
+                                                 placeholder="Descripción breve (opcional)"
+                                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm resize-none h-16"
+                                                 value={newClanDescription}
+                                                 onChange={e => setNewClanDescription(e.target.value)}
+                                             />
+                                         </div>
+                                     </div>
+                                 )}
+
+                                 <div className="space-y-2">
+                                     <label className="text-xs font-black uppercase text-gray-500">Plataforma</label>
+                                     <select 
+                                         className="w-full bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm font-bold"
+                                         value={platform}
+                                         onChange={e => setPlatform(e.target.value)}
+                                     >
+                                         <option value="Mobile">Mobile</option>
+                                         <option value="PC">PC</option>
+                                     </select>
+                                 </div>
+                                 
+                                 <div className="space-y-2">
+                                     <label className="text-xs font-black uppercase text-primary">Titulares (4 Requeridos)</label>
+                                     {mainPlayers.map((player: any, idx) => (
+                                         <div key={`main-${idx}`} className="flex gap-2">
+                                             <input 
+                                                 type="text"
+                                                 placeholder={`Titular ${idx + 1} (Nickname/ID)`}
+                                                 required
+                                                 className="flex-1 bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm"
+                                                 value={player.name}
+                                                 onChange={e => {
+                                                     const newPlayers = [...mainPlayers];
+                                                     newPlayers[idx] = { ...newPlayers[idx], name: e.target.value };
+                                                     setMainPlayers(newPlayers);
+                                                 }}
+                                             />
+                                             <select 
+                                                 className="bg-black/40 border border-white/10 rounded-xl px-3 outline-none focus:border-primary text-xs font-bold w-28 text-gray-300"
+                                                 value={player.platform}
+                                                 onChange={e => {
+                                                     const newPlayers = [...mainPlayers];
+                                                     newPlayers[idx] = { ...newPlayers[idx], platform: e.target.value };
+                                                     setMainPlayers(newPlayers);
+                                                 }}
+                                             >
+                                                 <option value="Mobile">📱 Mobile</option>
+                                                 <option value="PC">💻 PC</option>
+                                             </select>
+                                         </div>
+                                     ))}
+                                 </div>
+                                 
+                                 <div className="space-y-2">
+                                     <label className="text-xs font-black uppercase text-gray-500">Suplentes (Hasta 2 Opcionales)</label>
+                                     {subPlayers.map((player: any, idx) => (
+                                         <div key={`sub-${idx}`} className="flex gap-2">
+                                             <input 
+                                                 type="text"
+                                                 placeholder={`Suplente ${idx + 1} (Opcional)`}
+                                                 className="flex-1 bg-black/40 border border-white/10 rounded-xl p-3 outline-none focus:border-primary text-sm"
+                                                 value={player.name}
+                                                 onChange={e => {
+                                                     const newPlayers = [...subPlayers];
+                                                     newPlayers[idx] = { ...newPlayers[idx], name: e.target.value };
+                                                     setSubPlayers(newPlayers);
+                                                 }}
+                                             />
+                                             <select 
+                                                 className="bg-black/40 border border-white/10 rounded-xl px-3 outline-none focus:border-primary text-xs font-bold w-28 text-gray-300"
+                                                 value={player.platform}
+                                                 onChange={e => {
+                                                     const newPlayers = [...subPlayers];
+                                                     newPlayers[idx] = { ...newPlayers[idx], platform: e.target.value };
+                                                     setSubPlayers(newPlayers);
+                                                 }}
+                                             >
+                                                 <option value="Mobile">📱 Mobile</option>
+                                                 <option value="PC">💻 PC</option>
+                                             </select>
+                                         </div>
+                                     ))}
+                                 </div>
+                                 
+                                 <div className="pt-4 flex gap-2">
+                                     <button 
+                                         type="button" 
+                                         onClick={() => {
+                                             setShowRegistration(false);
+                                             setRegisteringWithNewClan(false);
+                                         }} 
+                                         className="w-1/3 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20"
+                                     >
+                                         Cancelar
+                                     </button>
+                                     <button 
+                                         type="submit" 
+                                         className="w-2/3 bg-primary text-black font-display font-bold uppercase italic py-3 rounded-xl hover:bg-white transition-colors"
+                                     >
+                                         {registeringWithNewClan ? 'Crear e Inscribir' : 'Confirmar'}
+                                     </button>
+                                 </div>
+                             </form>
+                         )}
+                      </>
+                  )}
+              </div>
           </div>
       </div>
     </div>

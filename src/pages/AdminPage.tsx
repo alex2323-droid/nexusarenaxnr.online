@@ -69,7 +69,9 @@ const AdminPage: React.FC = () => {
   const [currentParticipants, setCurrentParticipants] = useState<any[]>([]);
   const [viewingParticipant, setViewingParticipant] = useState<any | null>(null);
   const [tournamentToDelete, setTournamentToDelete] = useState<any | null>(null);
+  const [leagueToDelete, setLeagueToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingLeague, setIsDeletingLeague] = useState(false);
   const [isGeneratingBracket, setIsGeneratingBracket] = useState<string | null>(null);
   const [confirmingStartTournament, setConfirmingStartTournament] = useState<any | null>(null);
   const [startConfirmCountdown, setStartConfirmCountdown] = useState(0);
@@ -374,6 +376,22 @@ const AdminPage: React.FC = () => {
       alert('Error al eliminar el torneo. Asegúrate de tener permisos de administrador.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteLeague = async () => {
+    if (!leagueToDelete) return;
+    
+    setIsDeletingLeague(true);
+    try {
+      await deleteDoc(doc(db, 'leagues', leagueToDelete.id));
+      showToast('Liga eliminada correctamente');
+      setLeagueToDelete(null);
+    } catch (error: any) {
+      console.error('Delete league error:', error);
+      showToast('Error al eliminar la liga', 'error');
+    } finally {
+      setIsDeletingLeague(false);
     }
   };
 
@@ -1977,6 +1995,67 @@ const AdminPage: React.FC = () => {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {leagueToDelete && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeletingLeague && setLeagueToDelete(null)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md glass border-red-500/30 border-2 rounded-3xl overflow-hidden shadow-2xl shadow-red-500/10"
+            >
+              <div className="p-8 text-center space-y-6">
+                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
+                  <AlertTriangle className="text-red-500" size={40} />
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-display uppercase italic text-white tracking-tight">
+                    ¿Eliminar Liga?
+                  </h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    Estás a punto de eliminar la liga <span className="text-white font-bold">"{leagueToDelete.name}"</span>. 
+                    Esta acción borrará permanentemente la liga, todos los brackets generados, todas las inscripciones de clanes y estadísticas de clasificación asociadas. 
+                    <span className="block mt-2 text-red-400 font-bold uppercase text-[10px] tracking-widest font-mono">No se puede deshacer</span>
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button 
+                    disabled={isDeletingLeague}
+                    onClick={handleDeleteLeague}
+                    className={cn(
+                      "w-full py-4 bg-red-600 text-white font-display uppercase text-lg skew-x-[-10deg] flex items-center justify-center gap-2 transition-all hover:bg-red-500 active:scale-95 font-bold",
+                      isDeletingLeague && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {isDeletingLeague ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>Eliminar Liga</>
+                    )}
+                  </button>
+                  <button 
+                    disabled={isDeletingLeague}
+                    onClick={() => setLeagueToDelete(null)}
+                    className="w-full py-3 text-gray-500 font-display uppercase tracking-widest text-xs hover:text-white transition-colors disabled:opacity-50 font-bold"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Leagues Tab */}
       {activeTab === 'leagues' && (
           <div className="glass p-8 rounded-3xl border border-primary/20 space-y-8">
@@ -2224,16 +2303,7 @@ const AdminPage: React.FC = () => {
                                               </button>
                                               <button 
                                                   title="Eliminar Liga"
-                                                  onClick={async () => {
-                                                      if (confirm(`¿Estás seguro de que deseas eliminar permanentemente la liga "${lg.name}"? Esta acción borrará todas sus inscripciones.`)) {
-                                                          try {
-                                                              await deleteDoc(doc(db, 'leagues', lg.id));
-                                                              showToast('Liga eliminada correctamente');
-                                                          } catch (err) {
-                                                              showToast('Error al eliminar la liga', 'error');
-                                                          }
-                                                      }
-                                                  }}
+                                                  onClick={() => setLeagueToDelete(lg)}
                                                   className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 p-2 rounded-lg border border-red-500/10 transition-all"
                                               >
                                                   <Trash2 size={16} />
