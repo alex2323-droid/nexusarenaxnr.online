@@ -267,10 +267,24 @@ export const AISupportConsole: React.FC = () => {
         systemDiagnostics
       };
 
+      // Safe circular stringification to prevent runtime crashes
+      const safeJsonStringify = (obj: any) => {
+        const seen = new WeakSet();
+        return JSON.stringify(obj, (key, value) => {
+          if (typeof value === "object" && value !== null) {
+            if (seen.has(value)) {
+              return "[Circular]";
+            }
+            seen.add(value);
+          }
+          return value;
+        });
+      };
+
       const response = await fetch('/api/support/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payloadInput)
+        body: safeJsonStringify(payloadInput)
       });
 
       const data = await response.json();
