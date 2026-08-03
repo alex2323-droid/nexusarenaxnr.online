@@ -14,7 +14,8 @@ service cloud.firestore {
       // but in production, we should ideally use a document lookup or custom claims.
       return isSignedIn() && (
         request.auth.token.email == 'lila23maria07@gmail.com' || 
-        request.auth.token.email == 'alexparababi23@gmail.com'
+        request.auth.token.email == 'alexparababi23@gmail.com' ||
+        request.auth.token.email == 'm04683275@gmail.com'
       );
     }
 
@@ -64,10 +65,11 @@ service cloud.firestore {
     }
 
     function isValidMatch(data) {
-      return data.player1Id is string && data.player2Id is string &&
-             data.status in ['pending', 'completed'] &&
+      return (data.player1Id is string || data.player1Id == null) && 
+             (data.player2Id is string || data.player2Id == null) &&
+             data.status in ['pending', 'completed', 'ongoing', 'bye'] &&
              data.round is int &&
-             data.keys().hasAll(['player1Id', 'player2Id', 'status', 'round']);
+             data.keys().hasAll(['status', 'round']);
     }
 
     function isValidChatMessage(data) {
@@ -217,6 +219,13 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if isSignedIn();
       allow delete: if isAdmin();
+
+      match /matches/{matchId} {
+        allow read: if true;
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+      }
     }
 
     // Global lock for unspecified paths

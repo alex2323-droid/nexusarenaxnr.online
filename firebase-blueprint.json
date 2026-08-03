@@ -203,6 +203,43 @@
     "friendRequests": {
       "schema": "FriendRequest",
       "description": "Pending and past friend requests"
+    },
+    "leagues": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "game": { "type": "string" },
+          "prize": { "type": "string" },
+          "maxClans": { "type": "integer" },
+          "platform": { "type": "string" },
+          "startDate": { "type": "string" },
+          "rules": { "type": "string" },
+          "bannerImage": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "in_progress", "finished"] },
+          "registeredClans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clanId": { "type": "string" },
+                "clanName": { "type": "string" },
+                "clanTag": { "type": "string" },
+                "mainPlayers": { "type": "array", "items": { "type": "string" } },
+                "subPlayers": { "type": "array", "items": { "type": "string" } },
+                "platform": { "type": "string" },
+                "registeredAt": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "description": "Collection of clan leagues"
+    },
+    "leagues/{leagueId}/matches": {
+      "schema": "Match",
+      "description": "Matches within a clan league bracket"
     }
   }
 }

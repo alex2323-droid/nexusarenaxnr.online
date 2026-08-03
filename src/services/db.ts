@@ -685,6 +685,182 @@ export const bracketService = {
   }
 };
 
+export const leagueBracketService = {
+  async generateBracket(leagueId: string) {
+    const path = `leagues/${leagueId}/matches`;
+    try {
+      const leagueDocRef = doc(db, 'leagues', leagueId);
+      const leagueSnap = await getDoc(leagueDocRef);
+      if (!leagueSnap.exists()) {
+        throw new Error('La liga especificada no existe');
+      }
+
+      const leagueData = leagueSnap.data();
+      const approved = (leagueData.registeredClans || []) as any[];
+      
+      if (approved.length < 2) throw new Error('Se necesitan al menos 2 clanes inscritos para generar los brackets');
+
+      // Determine bracket size (next power of 2)
+      const participantCount = approved.length;
+      let bracketSize = 1;
+      while (bracketSize < participantCount) bracketSize *= 2;
+      
+      const rounds = Math.log2(bracketSize);
+      
+      // Shuffle clans for random seeding
+      const shuffled = [...approved].sort(() => Math.random() - 0.5);
+
+      const matchesByRound: any[][] = [];
+      
+      // Generate matches for all rounds
+      for (let r = 0; r < rounds; r++) {
+        const matchesInRound = bracketSize / Math.pow(2, r + 1);
+        matchesByRound[r] = [];
+        
+        for (let i = 0; i < matchesInRound; i++) {
+          const matchId = `r${r}-m${i}`;
+          const matchData: any = {
+            id: matchId,
+            leagueId,
+            round: r,
+            matchIndex: i,
+            status: 'pending',
+            player1Id: null,
+            player1Name: 'POR DETERMINAR',
+            player1Tag: '',
+            player2Id: null,
+            player2Name: 'POR DETERMINAR',
+            player2Tag: '',
+            nextMatchId: r < rounds - 1 ? `r${r+1}-m${Math.floor(i / 2)}` : null,
+            score1: null,
+            score2: null,
+            winnerId: null,
+            winnerName: null
+          };
+
+          // Populate Round 0 with clans or byes
+          if (r === 0) {
+            const p1Idx = i * 2;
+            const p2Idx = i * 2 + 1;
+            
+            if (p1Idx < participantCount) {
+              matchData.player1Id = shuffled[p1Idx].clanId;
+              matchData.player1Name = shuffled[p1Idx].clanName;
+              matchData.player1Tag = shuffled[p1Idx].clanTag;
+            }
+            
+            if (p2Idx < participantCount) {
+              matchData.player2Id = shuffled[p2Idx].clanId;
+              matchData.player2Name = shuffled[p2Idx].clanName;
+              matchData.player2Tag = shuffled[p2Idx].clanTag;
+            } else {
+              // Bye situation
+              matchData.status = 'bye';
+              matchData.winnerId = matchData.player1Id;
+              matchData.winnerName = matchData.player1Name;
+              matchData.player2Name = 'BYE';
+            }
+          }
+
+          matchesByRound[r].push(matchData);
+        }
+      }
+
+      // Save matches to Firestore
+      const batchPromises = [];
+      for (const round of matchesByRound) {
+        for (const match of round) {
+          batchPromises.push(setDoc(doc(db, 'leagues', leagueId, 'matches', match.id), {
+            ...match,
+            updatedAt: serverTimestamp()
+          }));
+        }
+      }
+      
+      await Promise.all(batchPromises);
+
+      // Handle byes: advance players immediately
+      const byes = matchesByRound[0].filter(m => m.status === 'bye');
+      for (const match of byes) {
+        if (match.nextMatchId) {
+          const nextMatchRef = doc(db, 'leagues', leagueId, 'matches', match.nextMatchId);
+          const nextMatchDoc = await getDoc(nextMatchRef);
+          if (nextMatchDoc.exists()) {
+             const isPlayer1Slot = match.matchIndex % 2 === 0;
+             await updateDoc(nextMatchRef, {
+               [isPlayer1Slot ? 'player1Id' : 'player2Id']: match.player1Id,
+               [isPlayer1Slot ? 'player1Name' : 'player2Name']: match.player1Name,
+               [isPlayer1Slot ? 'player1Tag' : 'player2Tag']: match.player1Tag,
+               updatedAt: serverTimestamp()
+             });
+          }
+        }
+      }
+
+      console.log(`Bracket generated for league ${leagueId}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path, auth);
+    }
+  },
+
+  listenMatches(leagueId: string, callback: (matches: any[]) => void) {
+    const q = query(
+      collection(db, 'leagues', leagueId, 'matches'),
+      orderBy('round', 'asc'),
+      orderBy('matchIndex', 'asc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, `leagues/${leagueId}/matches`, auth);
+    });
+  },
+
+  async updateMatch(leagueId: string, matchId: string, data: any) {
+    const path = `leagues/${leagueId}/matches/${matchId}`;
+    try {
+      const matchRef = doc(db, 'leagues', leagueId, 'matches', matchId);
+      const matchDoc = await getDoc(matchRef);
+      
+      if (!matchDoc.exists()) return;
+      const oldMatch = matchDoc.data();
+
+      // If completing a match, move winner to next round
+      if (data.status === 'completed' && oldMatch.status !== 'completed' && data.winnerId) {
+        // Move winner to next match if exists
+        if (oldMatch.nextMatchId) {
+          const nextMatchRef = doc(db, 'leagues', leagueId, 'matches', oldMatch.nextMatchId);
+          const nextMatchDoc = await getDoc(nextMatchRef);
+          
+          if (nextMatchDoc.exists()) {
+            const nextMatchData: any = nextMatchDoc.data();
+            const winnerName = data.winnerId === oldMatch.player1Id ? oldMatch.player1Name : oldMatch.player2Name;
+            const winnerTag = data.winnerId === oldMatch.player1Id ? oldMatch.player1Tag : oldMatch.player2Tag;
+            
+            // Determine if winner goes to player1 slot or player2 slot in next match
+            const isPlayer1Slot = oldMatch.matchIndex % 2 === 0;
+            
+            await updateDoc(nextMatchRef, {
+              [isPlayer1Slot ? 'player1Id' : 'player2Id']: data.winnerId,
+              [isPlayer1Slot ? 'player1Name' : 'player2Name']: winnerName,
+              [isPlayer1Slot ? 'player1Tag' : 'player2Tag']: winnerTag,
+              status: (isPlayer1Slot ? nextMatchData.player2Id : nextMatchData.player1Id) ? 'ongoing' : 'pending',
+              updatedAt: serverTimestamp()
+            });
+          }
+        }
+      }
+
+      await updateDoc(matchRef, {
+        ...data,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path, auth);
+    }
+  }
+};
+
 export const chatService = {
   listenMessages(tournamentId: string, callback: (messages: any[]) => void) {
     const q = query(
