@@ -7,15 +7,9 @@ service cloud.firestore {
     }
 
     // --- Global Helpers ---
-    function isSignedIn() {
-      return request.auth != null && request.auth.uid != null;
-    }
 
-    function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
-    }
 
-    function isAdmin() {
+    function isSignedIn() { return request.auth != null && request.auth.uid != null; } function isVerified() { return isSignedIn(); } function isAdmin() {
       // In this app, admins are hardcoded by email for simplicity in the rules,
       // but in production, we should ideally use a document lookup or custom claims.
       return isSignedIn() && (
@@ -108,13 +102,13 @@ service cloud.firestore {
     // Friend Requests
     match /friendRequests/{requestId} {
       allow read: if isSignedIn() && (isOwner(resource.data.fromId) || isOwner(resource.data.toId));
-      allow create: if isVerified() && 
+      allow create: if isSignedIn() && 
                     incoming().fromId == request.auth.uid && 
                     incoming().status == 'pending' &&
                     isValidFriendRequest(incoming()) &&
                     incoming().createdAt == request.time &&
                     isValidId(requestId);
-      allow update: if isVerified() && (
+      allow update: if isSignedIn() && (
         (isOwner(existing().toId) && incoming().status in ['accepted', 'declined']) ||
         isAdmin()
       ) && incoming().fromId == existing().fromId && incoming().toId == existing().toId &&
@@ -192,7 +186,7 @@ service cloud.firestore {
       // Chat
       match /chat/{messageId} {
         allow read: if isSignedIn();
-        allow create: if isVerified() && (
+        allow create: if isSignedIn() && (
           (incoming().senderId == request.auth.uid && incoming().senderName != 'Sistema') || 
           (isAdmin() && (incoming().senderId == 'system' || incoming().senderId == request.auth.uid))
         ) && isValidChatMessage(incoming()) && (incoming().createdAt == request.time || isAdmin());
@@ -206,6 +200,22 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAdmin() && isValidGame(incoming()) && isValidId(gameId);
       allow update: if isAdmin() && isValidGame(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Clans
+    match /clans/{clanId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    // Leagues
+    match /leagues/{leagueId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isSignedIn();
       allow delete: if isAdmin();
     }
 

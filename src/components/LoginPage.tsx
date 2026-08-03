@@ -11,18 +11,25 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [resetStatus, setResetStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const navigate = useNavigate();
 
   const handleResetPassword = async () => {
     if (!email) {
-      alert('Por favor ingresa tu correo electrónico para restablecer o crear tu contraseña.');
+      setResetStatus({ type: 'error', message: 'Por favor ingresa tu correo electrónico arriba para restablecer tu contraseña.' });
       return;
     }
     setIsLoading(true);
+    setResetStatus(null);
     try {
       await resetPassword(email);
-    } catch (error) {
-      console.error(error);
+      setResetStatus({ 
+        type: 'success', 
+        message: '¡Enlace enviado! Revisa tu bandeja de entrada y tu carpeta de SPAM (el remitente será noreply@...).' 
+      });
+    } catch (error: any) {
+      console.error(error?.message || error);
+      setResetStatus({ type: 'error', message: 'Error al enviar el enlace. Verifica que el correo sea correcto.' });
     } finally {
       setIsLoading(false);
     }
@@ -43,8 +50,8 @@ export default function LoginPage() {
         await loginWithEmail(email, password);
       }
       navigate('/');
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error(error?.message || error);
       setIsLoading(false);
     }
   };
@@ -184,6 +191,19 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+
+            <AnimatePresence>
+              {resetStatus && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                  exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                  className={`mb-6 p-4 rounded-xl border text-sm ${resetStatus.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}
+                >
+                  {resetStatus.message}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
               <div className="flex flex-col items-center gap-4">
                 <button

@@ -4,6 +4,7 @@ import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { Trophy, Medal, Crown, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import LeaderboardChart from '../components/LeaderboardChart';
 
 const LeaderboardPage: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -36,6 +37,10 @@ const LeaderboardPage: React.FC = () => {
         <h1 className="text-5xl md:text-7xl font-display uppercase italic tracking-tighter">Ranking <span className="text-primary">Regional</span></h1>
         <p className="text-gray-500 uppercase tracking-widest text-xs font-bold font-mono">Los 10 mejores jugadores de la plataforma</p>
       </div>
+
+      {!loading && users.length > 0 && (
+        <LeaderboardChart users={users} />
+      )}
 
       <div className="glass rounded-3xl border border-white/10 overflow-hidden">
         <div className="grid grid-cols-12 px-8 py-4 bg-white/5 border-b border-white/10 text-[10px] uppercase font-bold text-gray-500 tracking-widest">

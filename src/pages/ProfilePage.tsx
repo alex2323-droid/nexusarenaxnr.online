@@ -20,6 +20,7 @@ const ProfilePage: React.FC = () => {
     displayName: profile?.displayName || '',
     bio: profile?.bio || '',
     platform: profile?.platform || 'PC',
+    preferredGame: profile?.preferredGame || 'Free Fire',
     gameId: profile?.gameId || '',
     gameNick: profile?.gameNick || '',
     photoURL: profile?.photoURL || user?.photoURL || '',
@@ -96,9 +97,9 @@ const ProfilePage: React.FC = () => {
           const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
           resolve(dataUrl);
         };
-        img.onerror = reject;
+        img.onerror = () => reject(new Error("Error al cargar la imagen"));
       };
-      reader.onerror = reject;
+      reader.onerror = () => reject(new Error("Error al leer el archivo"));
     });
   };
 
@@ -189,6 +190,7 @@ const ProfilePage: React.FC = () => {
         displayName: profile.displayName || '',
         bio: profile.bio || '',
         platform: profile.platform || 'PC',
+        preferredGame: profile.preferredGame || 'Free Fire',
         gameId: profile.gameId || '',
         gameNick: profile.gameNick || '',
         photoURL: profile.photoURL || user?.photoURL || '',
@@ -328,6 +330,10 @@ const ProfilePage: React.FC = () => {
                <div className="flex items-center gap-1.5 text-[9px] md:text-xs font-bold uppercase tracking-widest bg-white/5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl border border-white/5">
                  <Target size={12} className="text-primary" />
                  <span>{profile?.platform || 'Aspirante'}</span>
+                </div>
+               <div className="flex items-center gap-1.5 text-[9px] md:text-xs font-bold uppercase tracking-widest bg-white/5 px-2.5 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl border border-white/5">
+                 <Gamepad2 size={12} className="text-primary" />
+                 <span>{profile?.preferredGame || 'Juego Principal'}</span>
                 </div>
             </div>
 
@@ -520,6 +526,30 @@ const ProfilePage: React.FC = () => {
                           <option value="PS5/PS4">🎮 PlayStation</option>
                           <option value="Xbox">🎮 Xbox</option>
                           <option value="Mobile">📱 Móvil / Tablet</option>
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                          <Layout size={16} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 flex items-center gap-2">
+                        <Gamepad2 size={14} /> Juego Principal
+                      </label>
+                      <div className="relative">
+                        <select 
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-primary transition-all appearance-none text-sm font-bold"
+                          value={formData.preferredGame}
+                          onChange={e => setFormData({...formData, preferredGame: e.target.value})}
+                        >
+                          <option value="Free Fire">🔫 Free Fire</option>
+                          <option value="Blood Strike">🔫 Blood Strike</option>
+                          <option value="Call of Duty: Mobile">🔫 COD Mobile</option>
+                          <option value="PUBG Mobile">🔫 PUBG Mobile</option>
+                          <option value="League of Legends">⚔️ League of Legends</option>
+                          <option value="Valorant">🎯 Valorant</option>
+                          <option value="EA FC / FIFA">⚽ EA FC / FIFA</option>
+                          <option value="Otro">🎮 Otro</option>
                         </select>
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
                           <Layout size={16} />

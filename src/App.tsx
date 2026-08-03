@@ -10,6 +10,9 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ForumPage from './pages/ForumPage';
+import ClansPage from './pages/ClansPage';
+import LeaguesPage from './pages/LeaguesPage';
+import LeagueDetailsPage from './pages/LeagueDetailsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './components/LoginPage';
 import { Toaster } from 'react-hot-toast';
@@ -70,6 +73,9 @@ const RootApp = () => {
           } 
         />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
+        <Route path="/clans" element={<ClansPage />} />
+        <Route path="/leagues" element={<LeaguesPage />} />
+        <Route path="/league/:id" element={<LeagueDetailsPage />} />
       </Routes>
     </Layout>
   );

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { tournamentService, userService, bracketService } from '../services/db';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import axios from 'axios';
 import { Trophy, Plus, Minus, Settings, Trash2, Check, Users, Clock, CreditCard, Eye, History, X, AlertTriangle, Workflow, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,7 +14,7 @@ const AdminPage: React.FC = () => {
   const [pendingParticipants, setPendingParticipants] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'tournaments' | 'payments' | 'ranking'>('tournaments');
+  const [activeTab, setActiveTab] = useState<'tournaments' | 'payments' | 'ranking' | 'leagues'>('tournaments');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -77,6 +77,14 @@ const AdminPage: React.FC = () => {
   const [placementPoints, setPlacementPoints] = useState<{[key: string]: number}>({});
   const [placementPosition, setPlacementPosition] = useState<{[key: string]: number}>({});
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+  const [showLeagueForm, setShowLeagueForm] = useState(false);
+  const [leagueForm, setLeagueForm] = useState({
+    name: '',
+    game: '',
+    prize: '',
+    maxClans: 16,
+    platform: 'Mobile'
+  });
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -153,7 +161,7 @@ const AdminPage: React.FC = () => {
         setViewingParticipant(prev => prev ? ({ ...prev, paymentStatus: 'approved', paymentCode: codeToUse }) : null);
       }
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       showToast('Error al aprobar el pago', 'error');
     }
   };
@@ -167,7 +175,7 @@ const AdminPage: React.FC = () => {
         setViewingParticipant(prev => prev ? ({ ...prev, paymentStatus: 'rejected' }) : null);
       }
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       showToast('Error al rechazar el pago', 'error');
     }
   };
@@ -180,7 +188,7 @@ const AdminPage: React.FC = () => {
           const snap = await getDocs(q);
           setUserSearchResults(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         } catch (error) {
-          console.error(error);
+          console.error(error instanceof Error ? error.message : error);
         }
       };
       fetchInitialUsers();
@@ -194,7 +202,7 @@ const AdminPage: React.FC = () => {
       const results = await userService.searchUsers(userSearchTerm);
       setUserSearchResults(results);
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       showToast('Error al buscar usuarios', 'error');
     }
   };
@@ -219,7 +227,7 @@ const AdminPage: React.FC = () => {
       // Refresh results if possible
       setUserSearchResults(prev => prev.map(u => u.id === selectedUser.id ? { ...u, stats: userStatsForm } : u));
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       showToast('Error al actualizar estadísticas', 'error');
     }
   };
@@ -242,7 +250,7 @@ const AdminPage: React.FC = () => {
       }));
       showToast('Estadística actualizada');
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       showToast('Error al actualizar', 'error');
     }
   };
@@ -533,6 +541,16 @@ const AdminPage: React.FC = () => {
         >
           Ranking
           {activeTab === 'ranking' && <motion.div layoutId="underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+        </button>
+        <button 
+          onClick={() => setActiveTab('leagues')}
+          className={cn(
+            "pb-4 px-2 font-display uppercase italic text-lg transition-all relative flex items-center gap-2",
+            activeTab === 'leagues' ? "text-primary" : "text-gray-500 hover:text-white"
+          )}
+        >
+          Ligas
+          {activeTab === 'leagues' && <motion.div layoutId="underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
         </button>
       </div>
 
@@ -1924,6 +1942,116 @@ const AdminPage: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Leagues Tab */}
+      {activeTab === 'leagues' && (
+          <div className="glass p-8 rounded-3xl border border-primary/20 space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                      <h2 className="text-2xl font-display uppercase italic text-white tracking-tight">Gestión de Ligas de Clanes</h2>
+                      <p className="text-gray-400 text-sm">Crea una nueva liga para enfrentar a los mejores clanes de la plataforma.</p>
+                  </div>
+                  <button 
+                      onClick={() => setShowLeagueForm(!showLeagueForm)}
+                      className="bg-primary text-black font-bold uppercase italic px-6 py-3 rounded-xl hover:bg-white transition-colors flex items-center gap-2"
+                  >
+                      {showLeagueForm ? <><Minus size={18} /> Cancelar</> : <><Plus size={18} /> Crear Nueva Liga</>}
+                  </button>
+              </div>
+
+              {showLeagueForm && (
+                  <motion.form 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      onSubmit={async (e) => {
+                          e.preventDefault();
+                          try {
+                              await addDoc(collection(db, 'leagues'), {
+                                  ...leagueForm,
+                                  status: 'open',
+                                  registeredClans: [],
+                                  createdAt: serverTimestamp()
+                              });
+                              showToast('Liga creada exitosamente');
+                              setShowLeagueForm(false);
+                              setLeagueForm({ name: '', game: '', prize: '', maxClans: 16, platform: 'Mobile' });
+                          } catch (err) {
+                              showToast('Error al crear liga', 'error');
+                          }
+                      }}
+                      className="bg-white/5 border border-white/10 p-6 rounded-2xl space-y-4"
+                  >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Nombre de la Liga</label>
+                              <input 
+                                  type="text" 
+                                  required
+                                  placeholder="Ej: Liga Diamante T2"
+                                  className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
+                                  value={leagueForm.name}
+                                  onChange={e => setLeagueForm({...leagueForm, name: e.target.value})}
+                              />
+                          </div>
+                          <div className="space-y-2">
+                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Juego</label>
+                              <input 
+                                  type="text" 
+                                  required
+                                  placeholder="Ej: Free Fire"
+                                  className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
+                                  value={leagueForm.game}
+                                  onChange={e => setLeagueForm({...leagueForm, game: e.target.value})}
+                              />
+                          </div>
+                          <div className="space-y-2">
+                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Premio</label>
+                              <input 
+                                  type="text" 
+                                  required
+                                  placeholder="Ej: 1000 Diamantes"
+                                  className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
+                                  value={leagueForm.prize}
+                                  onChange={e => setLeagueForm({...leagueForm, prize: e.target.value})}
+                              />
+                          </div>
+                          <div className="space-y-2">
+                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Plataforma</label>
+                              <select 
+                                  className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
+                                  value={leagueForm.platform}
+                                  onChange={e => setLeagueForm({...leagueForm, platform: e.target.value})}
+                              >
+                                  <option value="Mobile" className="bg-zinc-900">Mobile</option>
+                                  <option value="PC" className="bg-zinc-900">PC</option>
+                                  <option value="Consola" className="bg-zinc-900">Consola</option>
+                                  <option value="Multiplataforma" className="bg-zinc-900">Multiplataforma</option>
+                              </select>
+                          </div>
+                          <div className="space-y-2">
+                              <label className="text-[10px] uppercase font-bold text-gray-500 px-1">Máximo de Clanes</label>
+                              <input 
+                                  type="number" 
+                                  required
+                                  min="2"
+                                  className="w-full bg-black/30 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
+                                  value={leagueForm.maxClans}
+                                  onChange={e => setLeagueForm({...leagueForm, maxClans: parseInt(e.target.value) || 16})}
+                              />
+                          </div>
+                      </div>
+                      <div className="flex justify-end pt-2">
+                          <button 
+                              type="submit"
+                              className="bg-primary text-black px-8 py-3 rounded-xl font-display uppercase italic font-bold hover:bg-white transition-colors"
+                          >
+                              Publicar Liga
+                          </button>
+                      </div>
+                  </motion.form>
+              )}
+          </div>
+      )}
 
       {/* Toast Notifications */}
       <AnimatePresence>

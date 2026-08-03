@@ -41,7 +41,7 @@ if (typeof window !== 'undefined') {
       if (arg instanceof Error) return arg.message + '\n' + arg.stack;
       if (typeof arg === 'object') {
         try {
-          return JSON.stringify(arg);
+          return "[Object]";
         } catch {
           return String(arg);
         }
@@ -141,7 +141,7 @@ export const AISupportConsole: React.FC = () => {
   // Sync current chat messages to localStorage dynamically
   useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem('nexus_arena_support_chat_v3', JSON.stringify(messages));
+      const toStore = messages.map(m => ({ role: m.role, text: m.text, timestamp: m.timestamp.getTime() })); localStorage.setItem('nexus_arena_support_chat_v3', JSON.stringify(toStore));
     }
   }, [messages]);
 
@@ -185,7 +185,7 @@ export const AISupportConsole: React.FC = () => {
       }
     ];
     setMessages(refreshed);
-    localStorage.setItem('nexus_arena_support_chat_v3', JSON.stringify(refreshed));
+    const toStoreRefreshed = refreshed.map(m => ({ role: m.role, text: m.text, timestamp: m.timestamp.getTime() })); localStorage.setItem('nexus_arena_support_chat_v3', JSON.stringify(toStoreRefreshed));
     setErrorDetails(null);
   };
 
@@ -420,15 +420,16 @@ export const AISupportConsole: React.FC = () => {
         whileHover={{ scale: 1.06, y: -3 }}
         whileTap={{ scale: 0.94 }}
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[999] bg-primary hover:bg-white text-black font-display font-black text-xs uppercase tracking-widest py-3 px-4 sm:py-3.5 sm:px-6 rounded-full flex items-center gap-2 cursor-pointer transition-colors duration-300 border border-primary/25"
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[90] w-12 h-12 md:w-auto md:h-auto bg-primary hover:bg-white text-black font-display font-black text-xs uppercase tracking-widest md:py-3 md:px-5 rounded-full flex items-center justify-center md:gap-2 cursor-pointer transition-colors duration-300 border border-primary/25 shadow-lg"
       >
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-black"></span>
-        </span>
-        <MessageSquare size={15} className="text-black" />
-        <span className="hidden sm:inline">Soporte Técnico • En línea</span>
-        <span className="inline sm:hidden">Soporte</span>
+        <div className="absolute top-0 right-0 -mt-1 -mr-1">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-zinc-950"></span>
+          </span>
+        </div>
+        <MessageSquare size={20} className="text-black" />
+        <span className="hidden md:inline">Soporte</span>
       </motion.button>
 
       {/* Modern Sci-Fi Slidout Drawer UI */}

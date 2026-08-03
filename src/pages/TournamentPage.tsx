@@ -58,9 +58,9 @@ const TournamentPage: React.FC = () => {
             ctx?.drawImage(img, 0, 0, width, height);
             resolve(canvas.toDataURL('image/jpeg', 0.6));
           };
-          img.onerror = reject;
+          img.onerror = () => reject(new Error("Error al cargar la imagen"));
         };
-        reader.onerror = reject;
+        reader.onerror = () => reject(new Error("Error al leer el archivo"));
       });
 
       const [mimeType, base64] = base64Str.split(';base64,');
