@@ -104,7 +104,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <Link to="/" className="flex items-center gap-2">
             <div className="relative w-10 h-10 flex items-center justify-center">
               <img 
-                src="/logo.png" 
+                src="./logo.png" 
                 alt="Nexus Arena Logo" 
                 className="w-full h-full object-contain z-10" 
                 onError={(e) => {

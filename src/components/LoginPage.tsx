@@ -100,7 +100,7 @@ export default function LoginPage() {
               >
                 <div className="absolute inset-0 bg-primary/30 blur-2xl rounded-full" />
                 <div className="w-full h-full bg-zinc-950 rounded-[22px] flex items-center justify-center relative z-10 overflow-hidden">
-                  <img src="/logo.png" alt="Nexus Arena" className="w-[70%] h-[70%] object-contain" onError={(e) => {
+                  <img src="./logo.png" alt="Nexus Arena" className="w-[70%] h-[70%] object-contain" onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.parentElement?.querySelector('svg')?.classList.remove('hidden');
                   }} />
