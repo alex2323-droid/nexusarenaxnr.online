@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { tournamentService, chatService, matchService, bracketService } from '../services/db';
-import { Trophy, Calendar, Users, MessageSquare, Info, Send, ChevronRight, Zap, CreditCard, ExternalLink, Clock, Reply, Edit2, X, Plus, Swords, CheckCircle2, LayoutPanelLeft, Radio, Crown, Medal, ChevronDown, ChevronUp, Award, Activity, Loader2, Upload, Hash } from 'lucide-react';
+import { Trophy, Calendar, Users, MessageSquare, Info, Send, ChevronRight, Zap, CreditCard, ExternalLink, Clock, Reply, Edit2, X, Plus, Swords, CheckCircle2, LayoutPanelLeft, Radio, Crown, Medal, ChevronDown, ChevronUp, Award, Activity, Loader2, Upload, Hash, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -65,20 +65,37 @@ const TournamentPage: React.FC = () => {
 
       const [mimeType, base64] = base64Str.split(';base64,');
 
-      const res = await fetch('/api/extract-payment-reference', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, mimeType: mimeType.split(':')[1] })
-      });
-      const data = await res.json();
-      if (data.error) {
-        showToast(data.error, 'error');
-        return;
+      const isStaticDeploy = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
+
+      let data: any;
+
+      if (isStaticDeploy) {
+        // Simular análisis y extracción en GitHub Pages para permitir pruebas
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        data = {
+          reference: `REF${Math.floor(10000000 + Math.random() * 90000000)}`
+        };
+      } else {
+        const res = await fetch('/api/extract-payment-reference', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: base64, mimeType: mimeType.split(':')[1] })
+        });
+        data = await res.json();
+        if (data.error) {
+          showToast(data.error, 'error');
+          return;
+        }
       }
+
       if (data.reference && data.reference !== 'NO_ENCONTRADO') {
         const numbers = data.reference.replace(/[^0-9]/g, '');
         setRegForm(prev => ({ ...prev, reference: numbers.slice(-8) }));
-        showToast('Referencia extraída exitosamente.', 'success');
+        if (isStaticDeploy) {
+          showToast('Modo Demostración: Referencia extraída ficticiamente.', 'success');
+        } else {
+          showToast('Referencia extraída exitosamente.', 'success');
+        }
       } else {
         showToast('No se pudo encontrar la referencia en la imagen.', 'error');
       }
@@ -337,7 +354,9 @@ const TournamentPage: React.FC = () => {
           profile?.displayName || user.displayName || 'Anon',
           profile?.photoURL || user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`,
           false,
-          replyingTo
+          replyingTo,
+          profile?.isAmbassador || false,
+          profile?.isModerator || false
         );
         setReplyingTo(null);
       }
@@ -1513,15 +1532,27 @@ const TournamentPage: React.FC = () => {
                                 isOwnMessage ? "items-end" : "items-start"
                               )}>
                                 <div className={cn(
-                                  "flex items-center gap-2 px-1",
+                                  "flex items-center gap-2 px-1 flex-wrap",
                                   isOwnMessage ? "flex-row-reverse" : "flex-row"
                                 )}>
-                                  <span className={cn(
-                                    "text-[10px] uppercase font-black tracking-wider",
-                                    isOwnMessage ? "text-primary/70" : "text-gray-400"
-                                  )}>
-                                    {isOwnMessage ? 'Tú' : msg.senderName}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={cn(
+                                      "text-[10px] uppercase font-black tracking-wider",
+                                      isOwnMessage ? "text-primary/70" : "text-gray-400"
+                                    )}>
+                                      {isOwnMessage ? 'Tú' : msg.senderName}
+                                    </span>
+                                    {((isOwnMessage ? profile?.isAmbassador : msg.isAmbassador)) && (
+                                      <span className="bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-0.5" title="Embajador">
+                                        <Zap size={8} className="fill-current animate-pulse" />
+                                      </span>
+                                    )}
+                                    {((isOwnMessage ? profile?.isModerator : msg.isModerator)) && (
+                                      <span className="bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-blue-500/20 flex items-center gap-0.5" title="Moderador">
+                                        <Shield size={8} className="fill-current" />
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className="text-[9px] text-gray-600 font-mono">
                                     {msg.createdAt && format(msg.createdAt.toDate(), "HH:mm")}
                                   </span>

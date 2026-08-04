@@ -393,21 +393,38 @@ const HomePage: React.FC = () => {
 
       const [mimeType, base64] = base64Str.split(';base64,');
 
-      const res = await fetch('/api/extract-payment-reference', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, mimeType: mimeType.split(':')[1] })
-      });
-      const data = await res.json();
-      if (data.error) {
-        showToast(data.error, 'error');
-        return;
+      const isStaticDeploy = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
+
+      let data: any;
+
+      if (isStaticDeploy) {
+        // Simular análisis y extracción en GitHub Pages para permitir pruebas
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        data = {
+          reference: `REF${Math.floor(10000000 + Math.random() * 90000000)}`
+        };
+      } else {
+        const res = await fetch('/api/extract-payment-reference', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: base64, mimeType: mimeType.split(':')[1] })
+        });
+        data = await res.json();
+        if (data.error) {
+          showToast(data.error, 'error');
+          return;
+        }
       }
+
       if (data.reference && data.reference !== 'NO_ENCONTRADO') {
         // extract numbers only
         const numbers = data.reference.replace(/[^0-9]/g, '');
         setPaymentReference(numbers.slice(-8));
-        showToast('Referencia extraída exitosamente.', 'success');
+        if (isStaticDeploy) {
+          showToast('Modo Demostración: Referencia extraída ficticiamente.', 'success');
+        } else {
+          showToast('Referencia extraída exitosamente.', 'success');
+        }
       } else {
         showToast('No se pudo encontrar la referencia en la imagen.', 'error');
       }

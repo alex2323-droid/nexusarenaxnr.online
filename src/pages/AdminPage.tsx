@@ -4,7 +4,7 @@ import { tournamentService, userService, bracketService } from '../services/db';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, limit, getDocs, doc, getDoc, addDoc, serverTimestamp, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import axios from 'axios';
-import { Trophy, Plus, Minus, Settings, Trash2, Check, Users, Clock, CreditCard, Eye, History, X, AlertTriangle, Workflow, Mail, Zap } from 'lucide-react';
+import { Trophy, Plus, Minus, Settings, Trash2, Check, Users, Clock, CreditCard, Eye, History, X, AlertTriangle, Workflow, Mail, Zap, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -22,7 +22,9 @@ const AdminPage: React.FC = () => {
     wins: 0,
     losses: 0,
     tournaments: 0,
-    points: 0
+    points: 0,
+    isAmbassador: false,
+    isModerator: false
   });
   
   const [formData, setFormData] = useState({
@@ -249,7 +251,9 @@ const AdminPage: React.FC = () => {
       wins: u.stats?.wins || 0,
       losses: u.stats?.losses || 0,
       tournaments: u.stats?.tournaments || 0,
-      points: u.stats?.points || 0
+      points: u.stats?.points || 0,
+      isAmbassador: u.isAmbassador || false,
+      isModerator: u.isModerator || false
     });
   };
 
@@ -257,14 +261,33 @@ const AdminPage: React.FC = () => {
     e.preventDefault();
     if (!selectedUser) return;
     try {
-      await userService.updateStats(selectedUser.id, userStatsForm);
-      showToast(`Estadísticas de ${selectedUser.displayName} actualizadas`);
+      await userService.updateStats(selectedUser.id, {
+        wins: userStatsForm.wins,
+        losses: userStatsForm.losses,
+        tournaments: userStatsForm.tournaments,
+        points: userStatsForm.points
+      });
+      await userService.updateProfile(selectedUser.id, {
+        isAmbassador: userStatsForm.isAmbassador,
+        isModerator: userStatsForm.isModerator
+      });
+      showToast(`Estadísticas y roles de ${selectedUser.displayName} actualizados`);
       setSelectedUser(null);
       // Refresh results if possible
-      setUserSearchResults(prev => prev.map(u => u.id === selectedUser.id ? { ...u, stats: userStatsForm } : u));
+      setUserSearchResults(prev => prev.map(u => u.id === selectedUser.id ? { 
+        ...u, 
+        stats: {
+          wins: userStatsForm.wins,
+          losses: userStatsForm.losses,
+          tournaments: userStatsForm.tournaments,
+          points: userStatsForm.points
+        },
+        isAmbassador: userStatsForm.isAmbassador,
+        isModerator: userStatsForm.isModerator
+      } : u));
     } catch (error) {
       console.error(error instanceof Error ? error.message : error);
-      showToast('Error al actualizar estadísticas', 'error');
+      showToast('Error al actualizar el usuario', 'error');
     }
   };
 
@@ -1785,18 +1808,23 @@ const AdminPage: React.FC = () => {
                             alt="" 
                           />
                           <div className="overflow-hidden">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-bold text-white truncate">{u.displayName}</p>
                               {u.isAmbassador && (
                                 <span className="bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-0.5 shrink-0">
                                   <Zap size={8} className="fill-current" /> Embajador
                                 </span>
                               )}
+                              {u.isModerator && (
+                                <span className="bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-blue-500/20 flex items-center gap-0.5 shrink-0">
+                                  <Shield size={8} className="fill-current" /> Moderador
+                                </span>
+                              )}
                             </div>
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{u.platform || 'PC'}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button 
                             onClick={async () => {
                               try {
@@ -1810,21 +1838,44 @@ const AdminPage: React.FC = () => {
                               }
                             }}
                             className={cn(
-                              "p-2.5 rounded-lg transition-all border text-xs font-bold flex items-center gap-1.5",
+                              "p-2 rounded-lg transition-all border text-[11px] font-bold flex items-center gap-1",
                               u.isAmbassador 
                                 ? "bg-amber-500/20 text-amber-500 border-amber-500/30 hover:bg-amber-500 hover:text-black" 
                                 : "bg-white/5 text-gray-400 border-white/10 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/30"
                             )}
                             title={u.isAmbassador ? "Remover de Embajadores" : "Hacer Embajador"}
                           >
-                            <Zap size={14} className={u.isAmbassador ? "fill-current animate-pulse" : ""} />
-                            <span className="hidden sm:inline">{u.isAmbassador ? 'Quitar' : 'Hacer Embajador'}</span>
+                            <Zap size={12} className={u.isAmbassador ? "fill-current animate-pulse" : ""} />
+                            <span>{u.isAmbassador ? 'Quitar Emb' : 'Hacer Emb'}</span>
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const newStatus = !u.isModerator;
+                                await userService.updateProfile(u.id, { isModerator: newStatus });
+                                setUserSearchResults(prev => prev.map(usr => usr.id === u.id ? { ...usr, isModerator: newStatus } : usr));
+                                showToast(`${u.displayName} ahora ${newStatus ? 'es' : 'ya no es'} Moderador`);
+                              } catch (err) {
+                                console.error(err);
+                                showToast('Error al actualizar moderador', 'error');
+                              }
+                            }}
+                            className={cn(
+                              "p-2 rounded-lg transition-all border text-[11px] font-bold flex items-center gap-1",
+                              u.isModerator 
+                                ? "bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500 hover:text-white" 
+                                : "bg-white/5 text-gray-400 border-white/10 hover:bg-blue-500/10 hover:text-blue-400 hover:border-blue-500/30"
+                            )}
+                            title={u.isModerator ? "Remover de Moderadores" : "Hacer Moderador"}
+                          >
+                            <Shield size={12} className={u.isModerator ? "fill-current" : ""} />
+                            <span>{u.isModerator ? 'Quitar Mod' : 'Hacer Mod'}</span>
                           </button>
                           <button 
                             onClick={() => handleEditUserStats(u)}
-                            className="p-2.5 bg-white/5 hover:bg-primary hover:text-black rounded-lg transition-all text-primary border border-primary/20"
+                            className="p-2 bg-white/5 hover:bg-primary hover:text-black rounded-lg transition-all text-primary border border-primary/20"
                           >
-                            <Settings size={16} />
+                            <Settings size={14} />
                           </button>
                         </div>
                       </div>
@@ -1942,6 +1993,39 @@ const AdminPage: React.FC = () => {
                          onChange={(e) => setUserStatsForm(prev => ({ ...prev, losses: parseInt(e.target.value) || 0 }))}
                          className="w-full bg-zinc-900 border border-white/10 px-4 py-3 rounded-xl text-white outline-none focus:border-primary"
                        />
+                    </div>
+                  </div>
+
+                  {/* Roles Management */}
+                  <div className="space-y-3 pt-2 pb-1 border-t border-white/5">
+                    <p className="text-[10px] uppercase font-bold text-gray-500 px-1">ROLES DE USUARIO</p>
+                    <div className="flex gap-4">
+                      <label className="flex-1 flex items-center gap-2.5 bg-white/5 border border-white/10 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-white/[0.08] transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={userStatsForm.isAmbassador}
+                          onChange={(e) => setUserStatsForm(prev => ({ ...prev, isAmbassador: e.target.checked }))}
+                          className="rounded border-zinc-700 text-amber-500 focus:ring-amber-500/20 bg-zinc-900 w-4 h-4"
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-white flex items-center gap-1">
+                            <Zap size={10} className="text-amber-500 fill-current" /> Embajador
+                          </span>
+                        </div>
+                      </label>
+                      <label className="flex-1 flex items-center gap-2.5 bg-white/5 border border-white/10 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-white/[0.08] transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={userStatsForm.isModerator}
+                          onChange={(e) => setUserStatsForm(prev => ({ ...prev, isModerator: e.target.checked }))}
+                          className="rounded border-zinc-700 text-blue-500 focus:ring-blue-500/20 bg-zinc-900 w-4 h-4"
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-white flex items-center gap-1">
+                            <Shield size={10} className="text-blue-400 fill-current" /> Moderador
+                          </span>
+                        </div>
+                      </label>
                     </div>
                   </div>
 

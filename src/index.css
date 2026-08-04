@@ -1,6 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Anton&display=swap');
 @import "tailwindcss";
-
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -82,3 +81,100 @@ body.perf-mode .glass {
   -webkit-backdrop-filter: none !important;
 }
 
+/* ====== 16-BIT / NEON BUTTON & ICON OVERRIDES ====== */
+
+/* Icons */
+svg.lucide {
+  filter: drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.5));
+  transition: all 0.2s ease;
+}
+button:hover svg.lucide, a:hover svg.lucide {
+  filter: drop-shadow(0px 0px 8px var(--color-primary));
+  transform: scale(1.1);
+}
+
+/* Primary Buttons */
+button.bg-primary, a.bg-primary {
+  border-radius: 4px !important;
+  transform: skewX(0deg) !important;
+  border: 2px solid var(--color-primary);
+  border-bottom: 4px solid #1d4ed8 !important;
+  border-right: 4px solid #1d4ed8 !important;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.5) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  font-family: var(--font-display) !important;
+  transition: all 0.1s ease-in-out !important;
+  text-shadow: 1px 1px 0px rgba(0,0,0,0.5);
+  padding: 0.75rem 1.5rem !important; /* Button horizontal padding must be exactly 2x vertical padding. */
+}
+
+button.bg-primary:hover, a.bg-primary:hover {
+  background-color: var(--color-primary) !important;
+  color: #fff !important;
+  transform: translate(-2px, -2px) !important;
+  border-bottom: 6px solid #1d4ed8 !important;
+  border-right: 6px solid #1d4ed8 !important;
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.6) !important;
+}
+
+button.bg-primary:active, a.bg-primary:active {
+  transform: translate(2px, 2px) !important;
+  border-bottom: 0px solid #1d4ed8 !important;
+  border-right: 0px solid #1d4ed8 !important;
+  box-shadow: 0px 0px 0px rgba(0,0,0,0) !important;
+}
+
+/* Secondary Buttons */
+button.bg-white\/5, a.bg-white\/5 {
+  border-radius: 4px !important;
+  transform: skewX(0deg) !important;
+  border: 2px solid rgba(255, 255, 255, 0.1) !important;
+  border-bottom: 4px solid rgba(255, 255, 255, 0.2) !important;
+  border-right: 4px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.5) !important;
+  transition: all 0.1s ease-in-out !important;
+}
+
+button.bg-white\/5:hover, a.bg-white\/5:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  border-bottom: 6px solid rgba(255, 255, 255, 0.3) !important;
+  border-right: 6px solid rgba(255, 255, 255, 0.3) !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.6) !important;
+}
+
+button.bg-white\/5:active, a.bg-white\/5:active {
+  transform: translate(2px, 2px) !important;
+  border-bottom: 0px solid transparent !important;
+  border-right: 0px solid transparent !important;
+  box-shadow: 0px 0px 0px transparent !important;
+}
+
+/* Danger Buttons */
+button.bg-red-500, a.bg-red-500, button.bg-red-500\/10, a.bg-red-500\/10 {
+  border-radius: 4px !important;
+  transform: skewX(0deg) !important;
+  border: 2px solid #ef4444 !important;
+  border-bottom: 4px solid #b91c1c !important;
+  border-right: 4px solid #b91c1c !important;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.5) !important;
+  transition: all 0.1s ease-in-out !important;
+}
+
+button.bg-red-500:hover, a.bg-red-500:hover, button.bg-red-500\/10:hover, a.bg-red-500\/10:hover {
+  background-color: #ef4444 !important;
+  color: #fff !important;
+  transform: translate(-2px, -2px) !important;
+  border-bottom: 6px solid #b91c1c !important;
+  border-right: 6px solid #b91c1c !important;
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.6) !important;
+}
+
+button.bg-red-500:active, a.bg-red-500:active, button.bg-red-500\/10:active, a.bg-red-500\/10:active {
+  transform: translate(2px, 2px) !important;
+  border-bottom: 0px solid transparent !important;
+  border-right: 0px solid transparent !important;
+  box-shadow: 0px 0px 0px transparent !important;
+}

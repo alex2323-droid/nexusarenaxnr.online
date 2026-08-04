@@ -2,9 +2,61 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { userService, friendService } from '../services/db';
 import axios from 'axios';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { User, Edit3, Save, Camera, Gamepad2, Trophy, BarChart3, X, MessageSquare, Shield, Target, Zap, Star, Layout, Hash, Medal, Award, Crown, Eye, EyeOff, Swords, Lock, UserPlus, UserCheck, UserX, Search, Check, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+
+const FriendCard: React.FC<{ friend: any }> = ({ friend }) => {
+  const [friendData, setFriendData] = useState<any>(friend);
+
+  useEffect(() => {
+    if (!friend.uid) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', friend.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setFriendData({ ...friend, ...docSnap.data() });
+      }
+    });
+    return unsubscribe;
+  }, [friend.uid]);
+
+  const lastActiveTime = friendData.lastActive?.toMillis 
+    ? friendData.lastActive.toMillis() 
+    : (friendData.lastActive?.seconds ? friendData.lastActive.seconds * 1000 : null);
+  const isOnline = friendData.isOnline && lastActiveTime && (Date.now() - lastActiveTime) < 5 * 60 * 1000;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="p-6 bg-white/5 rounded-[2rem] border border-white/5 hover:border-primary/20 transition-all flex items-center gap-5 group"
+    >
+        <div className="relative">
+          <img 
+          src={friendData.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friendData.uid}`} 
+          alt="" 
+          className={cn("w-16 h-16 rounded-2xl group-hover:scale-105 transition-transform", !isOnline && "grayscale opacity-75")} 
+          />
+          <div className={cn("absolute -bottom-1 -right-1 w-4 h-4 border-2 border-[#09090b] rounded-full", isOnline ? "bg-green-500" : "bg-gray-500")} />
+        </div>
+        <div className="flex-grow">
+          <h4 className="text-lg font-display uppercase italic tracking-tight">{friendData.displayName}</h4>
+          <div className="flex items-center gap-4 mt-1">
+            <div className="flex items-center gap-1 text-[10px] font-black uppercase text-primary">
+              <Trophy size={10} /> {friendData.stats?.wins || 0} Victorias
+            </div>
+            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+              <Clock size={10} /> DESDE {friendData.addedAt?.toDate ? new Date(friendData.addedAt.toDate()).toLocaleDateString() : 'N/A'}
+            </div>
+          </div>
+        </div>
+        <button className="p-3 bg-white/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 text-gray-500 hover:text-white">
+          <MessageSquare size={18} />
+        </button>
+    </motion.div>
+  );
+};
 
 const ProfilePage: React.FC = () => {
   const { user, profile, isAdmin } = useAuth();
@@ -227,11 +279,12 @@ const ProfilePage: React.FC = () => {
   const xpProgress = (wins % 5) * 20;
 
   const ALL_BADGES = [
-    { id: 'first_win', name: 'Primer Triunfo', description: 'Gana 1 torneo', icon: Medal, color: 'text-blue-400', condition: wins >= 1 },
-    { id: 'veteran', name: 'Veterano', description: 'Participa en 5 torneos', icon: Award, color: 'text-purple-400', condition: tourneys >= 5 },
-    { id: 'legend', name: 'Leyenda', description: 'Gana 10 torneos', icon: Crown, color: 'text-yellow-400', condition: wins >= 10 },
-    { id: 'early_adopter', name: 'Pionero', description: 'Usuario de la primera ola', icon: Zap, color: 'text-cyan-400', condition: true }, // For simplicity, all current users are pioneers
-    { id: 'social_star', name: 'Estrella Social', description: 'Escribe en el chat frecuentemente', icon: MessageSquare, color: 'text-pink-400', condition: true },
+    { id: 'first_blood', name: 'Primera Sangre', description: 'Participa en 1 torneo', icon: Swords, color: 'text-red-500', condition: tourneys >= 1 },
+    { id: 'first_win', name: 'Sabor a Victoria', description: 'Gana 1 torneo', icon: Medal, color: 'text-blue-400', condition: wins >= 1 },
+    { id: 'top_10', name: 'Top 10 en Torneos', description: 'Gana 3 torneos para entrar al Top 10', icon: Trophy, color: 'text-yellow-500', condition: wins >= 3 },
+    { id: 'veteran', name: 'Jugador Veterano', description: 'Participa en 10 torneos', icon: Shield, color: 'text-indigo-400', condition: tourneys >= 10 },
+    { id: 'legend', name: 'Leyenda Viva', description: 'Gana 10 torneos', icon: Crown, color: 'text-yellow-400', condition: wins >= 10 },
+    { id: 'early_adopter', name: 'Pionero', description: 'Fundador de la Arena', icon: Zap, color: 'text-cyan-400', condition: true },
     { id: 'pro_player', name: 'Pro Gamer', description: 'Alcanza el nivel 10', icon: Star, color: 'text-primary', condition: level >= 10 },
   ];
 
@@ -741,25 +794,7 @@ const ProfilePage: React.FC = () => {
             </div>
           </motion.div>
 
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex items-center justify-between p-6 bg-yellow-500/5 border border-yellow-500/10 rounded-3xl"
-          >
-             <div className="flex items-center gap-4">
-                <div className="p-3 bg-yellow-500/10 rounded-2xl">
-                   <Star size={24} className="text-yellow-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-yellow-500/60">Sistema de Logros</p>
-                  <p className="text-sm font-bold text-gray-400">Pronto podrás desbloquear medallas exclusivas por tus victorias.</p>
-                </div>
-             </div>
-             <button className="hidden md:block px-6 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors">
-                Ver Road Map
-             </button>
-          </motion.div>
+          
 
           {/* New Achievements Section */}
           <motion.div 
@@ -889,10 +924,11 @@ const ProfilePage: React.FC = () => {
                     </div>
                     <button 
                       onClick={() => handleSendRequest(result)}
-                      className="p-2 bg-primary/10 text-primary rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-black"
+                      className="px-3 py-2 bg-primary/10 text-primary rounded-xl transition-all hover:bg-primary hover:text-black flex items-center gap-2 border border-primary/20"
                       title="Enviar Solicitud"
                     >
                       <UserPlus size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Agregar</span>
                     </button>
                   </div>
                 ))
@@ -967,35 +1003,7 @@ const ProfilePage: React.FC = () => {
             {friends.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {friends.map(friend => (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={friend.id}
-                    className="p-6 bg-white/5 rounded-[2rem] border border-white/5 hover:border-primary/20 transition-all flex items-center gap-5 group"
-                  >
-                     <div className="relative">
-                       <img 
-                        src={friend.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.uid}`} 
-                        alt="" 
-                        className="w-16 h-16 rounded-2xl group-hover:scale-105 transition-transform" 
-                       />
-                       <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#09090b] rounded-full" />
-                     </div>
-                     <div className="flex-grow">
-                       <h4 className="text-lg font-display uppercase italic tracking-tight">{friend.displayName}</h4>
-                       <div className="flex items-center gap-4 mt-1">
-                         <div className="flex items-center gap-1 text-[10px] font-black uppercase text-primary">
-                           <Trophy size={10} /> {friend.stats?.wins || 0} Victorias
-                         </div>
-                         <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                           <Clock size={10} /> DESDE {new Date(friend.addedAt?.toDate()).toLocaleDateString()}
-                         </div>
-                       </div>
-                     </div>
-                     <button className="p-3 bg-white/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 text-gray-500 hover:text-white">
-                       <MessageSquare size={18} />
-                     </button>
-                  </motion.div>
+                  <FriendCard key={friend.id} friend={friend} />
                 ))}
               </div>
             ) : (

@@ -36,25 +36,63 @@ import { collection, getDocs } from 'firebase/firestore';
 const errorLogs: string[] = [];
 if (typeof window !== 'undefined') {
   const originalError = console.error;
-  console.error = (...args) => {
-    const errorMsg = args.map(arg => {
-      if (arg instanceof Error) return arg.message + '\n' + arg.stack;
-      if (typeof arg === 'object') {
+
+  const safeLogArgs = (args: any[]) => {
+    const seen = new WeakSet();
+    const clean = (val: any): any => {
+      if (val === null || typeof val !== 'object') {
+        return val;
+      }
+      if (seen.has(val)) {
+        return '[Circular]';
+      }
+      seen.add(val);
+      if (val instanceof Error) {
+        return {
+          message: val.message,
+          name: val.name,
+          stack: val.stack,
+        };
+      }
+      if (Array.isArray(val)) {
+        return val.map(clean);
+      }
+      const cloned: any = {};
+      for (const key of Object.keys(val)) {
         try {
-          return "[Object]";
+          cloned[key] = clean(val[key]);
         } catch {
-          return String(arg);
+          cloned[key] = '[Unreadable]';
         }
       }
-      return String(arg);
-    }).join(' ');
+      return cloned;
+    };
+    return args.map(clean);
+  };
 
-    // Suppress Firestore BloomFilter log duplication
-    if (!errorMsg.includes('BloomFilter') && !errorMsg.includes('Invalid hash count: 0')) {
-      if (errorLogs.length >= 10) errorLogs.shift();
-      errorLogs.push(errorMsg.slice(0, 150));
+  console.error = (...args) => {
+    try {
+      const errorMsg = args.map(arg => {
+        if (arg instanceof Error) return arg.message + '\n' + arg.stack;
+        if (typeof arg === 'object') {
+          try {
+            return "[Object]";
+          } catch {
+            return String(arg);
+          }
+        }
+        return String(arg);
+      }).join(' ');
+
+      // Suppress Firestore BloomFilter log duplication
+      if (!errorMsg.includes('BloomFilter') && !errorMsg.includes('Invalid hash count: 0')) {
+        if (errorLogs.length >= 10) errorLogs.shift();
+        errorLogs.push(errorMsg.slice(0, 150));
+      }
+      originalError(...safeLogArgs(args));
+    } catch (err) {
+      originalError(...args);
     }
-    originalError(...args);
   };
 
   window.addEventListener('error', (event) => {
@@ -281,16 +319,28 @@ export const AISupportConsole: React.FC = () => {
         });
       };
 
-      const response = await fetch('/api/support/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: safeJsonStringify(payloadInput)
-      });
+      const isStaticDeploy = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
 
-      const data = await response.json();
+      let data: any;
 
-      if (!response.ok) {
-        throw new Error(data.details || data.error || 'Falla al procesar el chat.');
+      if (isStaticDeploy) {
+        // Simular respuesta de soporte en el entorno estático de GitHub Pages
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        data = {
+          text: `🤖 **Soporte Técnico (Modo Demostración)**\n\n¡Hola! Estás visualizando la versión de demostración estática en **GitHub Pages**.\n\nDado que GitHub Pages aloja sitios estáticos y no ejecuta un servidor de Node.js (Express), el servicio de chat en tiempo real con IA está operando en **Modo Simulado**.\n\nSin embargo, queremos informarte que:\n- La sincronización en tiempo real con **Google Firebase (Firestore & Auth)** está activa y funciona al 100%.\n- Puedes crear torneos, inscribirte, chatear con otros jugadores en las salas de torneos y modificar tu perfil.\n- Todo el diseño visual, tablas y navegación de la app están completamente funcionales.\n\n¿Tienes alguna duda sobre las funcionalidades de la plataforma?`
+        };
+      } else {
+        const response = await fetch('/api/support/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: safeJsonStringify(payloadInput)
+        });
+
+        data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.details || data.error || 'Falla al procesar el chat.');
+        }
       }
 
       const modelMsg: ChatMessage = {

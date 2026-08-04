@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { Trophy, Medal, Crown, Star } from 'lucide-react';
+import { Trophy, Medal, Crown, Star, Zap, Shield } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import LeaderboardChart from '../components/LeaderboardChart';
@@ -95,8 +95,20 @@ const LeaderboardPage: React.FC = () => {
                     alt={user.displayName} 
                    />
                    <div>
-                     <p className="font-bold uppercase tracking-tight text-lg">{user.displayName}</p>
-                     <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{user.platform}</p>
+                     <div className="flex items-center gap-1.5 flex-wrap">
+                       <p className="font-bold uppercase tracking-tight text-lg leading-tight">{user.displayName}</p>
+                       {user.isAmbassador && (
+                         <span className="bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-0.5" title="Embajador">
+                           <Zap size={8} className="fill-current animate-pulse" />
+                         </span>
+                       )}
+                       {user.isModerator && (
+                         <span className="bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-blue-500/20 flex items-center gap-0.5" title="Moderador">
+                           <Shield size={8} className="fill-current" />
+                         </span>
+                       )}
+                     </div>
+                     <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mt-0.5">{user.platform}</p>
                    </div>
                 </div>
                 <div className="col-span-1 text-center font-display italic text-gray-400 text-lg">

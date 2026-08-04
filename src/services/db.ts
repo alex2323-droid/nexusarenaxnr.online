@@ -673,12 +673,15 @@ export const bracketService = {
 
   listenMatches(tournamentId: string, callback: (matches: any[]) => void) {
     const q = query(
-      collection(db, 'tournaments', tournamentId, 'matches'),
-      orderBy('round', 'asc'),
-      orderBy('matchIndex', 'asc')
+      collection(db, 'tournaments', tournamentId, 'matches')
     );
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const matches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      matches.sort((a: any, b: any) => {
+        if (a.round !== b.round) return (a.round || 0) - (b.round || 0);
+        return (a.matchIndex || 0) - (b.matchIndex || 0);
+      });
+      callback(matches);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, `tournaments/${tournamentId}/matches`, auth);
     });
@@ -805,12 +808,15 @@ export const leagueBracketService = {
 
   listenMatches(leagueId: string, callback: (matches: any[]) => void) {
     const q = query(
-      collection(db, 'leagues', leagueId, 'matches'),
-      orderBy('round', 'asc'),
-      orderBy('matchIndex', 'asc')
+      collection(db, 'leagues', leagueId, 'matches')
     );
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const matches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      matches.sort((a: any, b: any) => {
+        if (a.round !== b.round) return (a.round || 0) - (b.round || 0);
+        return (a.matchIndex || 0) - (b.matchIndex || 0);
+      });
+      callback(matches);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, `leagues/${leagueId}/matches`, auth);
     });
@@ -874,7 +880,7 @@ export const chatService = {
     });
   },
 
-  async sendMessage(tournamentId: string, message: string, userId: string, userName: string, senderPhotoURL: string, isSystem: boolean = false, replyTo?: any) {
+  async sendMessage(tournamentId: string, message: string, userId: string, userName: string, senderPhotoURL: string, isSystem: boolean = false, replyTo?: any, isAmbassador: boolean = false, isModerator: boolean = false) {
     const path = `tournaments/${tournamentId}/chat`;
     try {
       await addDoc(collection(db, 'tournaments', tournamentId, 'chat'), {
@@ -889,6 +895,8 @@ export const chatService = {
           message: replyTo.message,
           senderName: replyTo.senderName
         } : null,
+        isAmbassador,
+        isModerator,
         createdAt: serverTimestamp(),
       });
     } catch (error) {
@@ -1193,11 +1201,16 @@ export const friendService = {
     const q = query(
       collection(db, path),
       where('toId', '==', userId),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
+      where('status', '==', 'pending')
     );
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      requests.sort((a: any, b: any) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return timeB - timeA;
+      });
+      callback(requests);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path, auth);
     });

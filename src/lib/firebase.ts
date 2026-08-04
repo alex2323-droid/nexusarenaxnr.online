@@ -3,16 +3,54 @@ import { getAuth, User, signInWithEmailAndPassword, createUserWithEmailAndPasswo
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Intercept and suppress benign internal Firestore BloomFilter error logs
+// Intercept and suppress benign internal Firestore BloomFilter error logs, and sanitize circular structures to prevent serialization crashes in downstream logs
 const originalConsoleError = console.error;
+
+const safeLogArgs = (args: any[]) => {
+  const seen = new WeakSet();
+  const clean = (val: any): any => {
+    if (val === null || typeof val !== 'object') {
+      return val;
+    }
+    if (seen.has(val)) {
+      return '[Circular]';
+    }
+    seen.add(val);
+    if (val instanceof Error) {
+      return {
+        message: val.message,
+        name: val.name,
+        stack: val.stack,
+      };
+    }
+    if (Array.isArray(val)) {
+      return val.map(clean);
+    }
+    const cloned: any = {};
+    for (const key of Object.keys(val)) {
+      try {
+        cloned[key] = clean(val[key]);
+      } catch {
+        cloned[key] = '[Unreadable]';
+      }
+    }
+    return cloned;
+  };
+  return args.map(clean);
+};
+
 console.error = (...args: any[]) => {
-  const isBloomFilterError = args.some(
-    arg => typeof arg === 'string' && (arg.includes('BloomFilter') || arg.includes('Invalid hash count: 0'))
-  );
-  if (isBloomFilterError) {
-    return;
+  try {
+    const isBloomFilterError = args.some(
+      arg => typeof arg === 'string' && (arg.includes('BloomFilter') || arg.includes('Invalid hash count: 0'))
+    );
+    if (isBloomFilterError) {
+      return;
+    }
+    originalConsoleError(...safeLogArgs(args));
+  } catch (err) {
+    originalConsoleError(...args);
   }
-  originalConsoleError(...args);
 };
 
 const app = initializeApp(firebaseConfig);
